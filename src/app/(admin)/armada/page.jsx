@@ -2,12 +2,38 @@
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Truck, Check, Wrench, MapPin } from "lucide-react";
 import ArmadaHeader from "@/components/armada/ArmadaHeader";
 import ArmadaFilters from "@/components/armada/ArmadaFilters";
 import ArmadaCard from "@/components/armada/ArmadaCard";
 import ArmadaDialog from "@/components/armada/ArmadaDialog";
 
 export default function ArmadaPage() {
+  // Small animated number component: briefly scales when value changes
+  function CountNumber({ value }) {
+    const [pop, setPop] = useState(false);
+    const prev = React.useRef(value);
+
+    useEffect(() => {
+      if (prev.current !== value) {
+        setPop(true);
+        const t = setTimeout(() => setPop(false), 300);
+        prev.current = value;
+        return () => clearTimeout(t);
+      }
+    }, [value]);
+
+    return (
+      <p
+        className={`text-3xl font-extrabold text-slate-900 transition-transform duration-300 ease-out ${
+          pop ? "scale-110" : "scale-100"
+        }`}
+      >
+        {value}
+      </p>
+    );
+  }
   const [armadas, setArmadas] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -148,6 +174,87 @@ export default function ArmadaPage() {
   return (
     <div>
       <ArmadaHeader onAdd={openNewArmadaDialog} />
+
+      {/* Info cards showing counts per status (uses shared Card component) */}
+      <div className="px-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {Object.entries(statusCounts).map(([k, v]) => {
+            const key = k;
+            const count = v;
+            const props =
+              key === "ALL"
+                ? { label: "Total Armada", color: "slate", icon: Truck }
+                : key === "READY"
+                ? { label: "Ready", color: "emerald", icon: Check }
+                : key === "MAINTENANCE"
+                ? { label: "Maintenance", color: "amber", icon: Wrench }
+                : key === "ON_TRIP"
+                ? { label: "On Trip", color: "sky", icon: MapPin }
+                : { label: key, color: "slate", icon: Truck };
+
+            const color = props.color;
+            const Icon = props.icon;
+            const badgeClass =
+              color === "emerald"
+                ? "bg-gradient-to-tr from-emerald-500 to-emerald-600 text-white"
+                : color === "sky"
+                ? "bg-gradient-to-tr from-sky-500 to-sky-600 text-white"
+                : color === "amber"
+                ? "bg-gradient-to-tr from-amber-500 to-amber-600 text-white"
+                : "bg-gradient-to-tr from-slate-300 to-slate-400 text-slate-900";
+
+            const accentBar =
+              color === "emerald"
+                ? "bg-emerald-500"
+                : color === "sky"
+                ? "bg-sky-500"
+                : color === "amber"
+                ? "bg-amber-500"
+                : "bg-slate-300";
+
+            return (
+              <Card
+                key={key}
+                className="relative overflow-hidden rounded-lg border p-0 bg-white hover:shadow-lg transform hover:-translate-y-0.5 transition-all"
+              >
+                {/* left accent bar */}
+                <div
+                  className={`absolute left-0 top-0 bottom-0 w-1 ${accentBar}`}
+                />
+
+                <div className="p-4">
+                  <CardHeader className="flex items-start gap-3 pb-0">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-slate-50">
+                      <Icon className="h-5 w-5 text-current" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {props.label}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-0.5">Overview</p>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="flex items-center justify-between pt-2">
+                    <div>
+                      <CountNumber value={count} />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        items
+                      </p>
+                    </div>
+
+                    <div
+                      className={`h-12 w-12 rounded-full flex items-center justify-center ${badgeClass} font-semibold`}
+                    >
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                  </CardContent>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
 
       <ArmadaFilters
         searchTerm={searchTerm}

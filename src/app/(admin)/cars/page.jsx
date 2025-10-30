@@ -1,153 +1,33 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import ArmadaHeader from "@/components/armada/ArmadaHeader";
 import ArmadaFilters from "@/components/armada/ArmadaFilters";
 import ArmadaCard from "@/components/armada/ArmadaCard";
 import ArmadaDialog from "@/components/armada/ArmadaDialog";
+import { useArmada } from "@/hooks/useArmada";
+import { useArmadaDialog } from "@/hooks/useArmadaDialog";
 
 export default function ArmadaPage() {
-  const [armadas, setArmadas] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("ALL");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingArmada, setEditingArmada] = useState(null);
-  const [formData, setFormData] = useState({
-    license_plate: "",
-    brand: "",
-    model: "",
-    status: "READY",
-    description: "",
-  });
-  const [isCustomModel, setIsCustomModel] = useState(false);
+  const {
+    armadas,
+    isLoading,
+    searchTerm,
+    filterStatus,
+    statusCounts,
+    handleSearchChange,
+    setFilterStatus,
+    handleDelete,
+    handleMaintenance,
+    refetchArmadas,
+  } = useArmada();
 
-  async function fetchArmadas() {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/armada");
-      if (!res.ok) throw new Error("fetch failed");
-      const data = await res.json();
-      setArmadas(data);
-    } catch (err) {
-      console.error("Failed to load armadas", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchArmadas();
-  }, []);
-
-  const handleInputChange = (e) => {
-    const { id, value } = e.target;
-    setFormData((p) => ({ ...p, [id]: value }));
-  };
-
-  const handleSearchChange = (e) => setSearchTerm(e.target.value);
-
-  const filteredArmadas = armadas.filter((a) => {
-    const q = searchTerm.trim().toLowerCase();
-    const matchesQ =
-      !q ||
-      (a.license_plate && a.license_plate.toLowerCase().includes(q)) ||
-      (a.brand && a.brand.toLowerCase().includes(q)) ||
-      (a.model && a.model.toLowerCase().includes(q));
-    const matchesStatus =
-      filterStatus === "ALL" || (a.status || "READY") === filterStatus;
-    return matchesQ && matchesStatus;
-  });
-
-  const statusCounts = armadas.reduce(
-    (acc, a) => {
-      const s = a.status || "READY";
-      acc[s] = (acc[s] || 0) + 1;
-      acc.ALL = (acc.ALL || 0) + 1;
-      return acc;
-    },
-    { ALL: 0 }
-  );
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const method = editingArmada ? "PUT" : "POST";
-      const url = editingArmada
-        ? `/api/armada/${editingArmada.id}`
-        : "/api/armada";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error("save failed");
-      setIsDialogOpen(false);
-      setEditingArmada(null);
-      await fetchArmadas();
-    } catch (err) {
-      console.error("Failed to save armada", err);
-    }
-  };
-
-  const handleEdit = (armada) => {
-    const known = ["Innova Reborn", "Hi-Ace"];
-    setEditingArmada(armada);
-    // model holds the 'Tipe' (Innova, Hi-Ace). If it's not in known list, treat as custom
-    setIsCustomModel(Boolean(armada.model && !known.includes(armada.model)));
-    setFormData({
-      license_plate: armada.license_plate || "",
-      brand: armada.brand || "",
-      model: armada.model || "",
-      status: armada.status || "READY",
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm("Hapus armada ini?")) return;
-    try {
-      const res = await fetch(`/api/armada/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
-      await fetchArmadas();
-    } catch (err) {
-      console.error("Failed to delete", err);
-    }
-  };
-
-  const handleMaintenance = async (armada) => {
-    try {
-      // Set status to MAINTENANCE (align with Prisma enum)
-      const payload = { ...armada, status: "MAINTENANCE" };
-      const res = await fetch(`/api/armada/${armada.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("maintenance update failed");
-      await fetchArmadas();
-    } catch (err) {
-      console.error("Failed to update maintenance status", err);
-    }
-  };
-
-  const openNewArmadaDialog = () => {
-    setEditingArmada(null);
-    setFormData({
-      license_plate: "",
-      brand: "",
-      model: "",
-      status: "READY",
-      description: "",
-    });
-    setIsCustomModel(false);
-    setIsDialogOpen(true);
-  };
+  const dialog = useArmadaDialog(refetchArmadas);
 
   return (
     <div>
-      <ArmadaHeader onAdd={openNewArmadaDialog} />
+      <ArmadaHeader onAdd={dialog.openNewArmadaDialog} />
 
       <ArmadaFilters
         searchTerm={searchTerm}
@@ -171,23 +51,23 @@ export default function ArmadaPage() {
               </div>
             ))}
           </div>
-        ) : filteredArmadas.length === 0 ? (
+        ) : armadas.length === 0 ? (
           <div className="rounded-lg border-dashed border-2 border-slate-200 p-6 text-center">
             <p className="text-lg font-medium mb-2">Belum ada armada</p>
             <p className="text-sm text-muted-foreground mb-4">
               Tambahkan armada pertama Anda untuk mulai mencatat kendaraan.
             </p>
-            <Button onClick={openNewArmadaDialog}>Tambah Armada</Button>
+            <Button onClick={dialog.openNewArmadaDialog}>Tambah Armada</Button>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredArmadas.map((a) => (
+            {armadas.map((a) => (
               <ArmadaCard
                 key={a.id}
                 armada={a}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onMaintenance={handleMaintenance}
+                onEdit={() => dialog.handleEdit(a)}
+                onDelete={() => handleDelete(a.id)}
+                onMaintenance={() => handleMaintenance(a)}
               />
             ))}
           </div>
@@ -195,14 +75,14 @@ export default function ArmadaPage() {
       </div>
 
       <ArmadaDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        editingArmada={editingArmada}
-        formData={formData}
-        handleInputChange={handleInputChange}
-        isCustomModel={isCustomModel}
-        setIsCustomModel={setIsCustomModel}
-        handleSubmit={handleSubmit}
+        open={dialog.isDialogOpen}
+        onOpenChange={dialog.setIsDialogOpen}
+        editingArmada={dialog.editingArmada}
+        formData={dialog.formData}
+        handleInputChange={dialog.handleInputChange}
+        isCustomModel={dialog.isCustomModel}
+        setIsCustomModel={dialog.setIsCustomModel}
+        handleSubmit={dialog.handleSubmit}
       />
     </div>
   );

@@ -27,3 +27,11 @@ DEPLOYMENT_FIX.md
 SEED_DATA_DOCUMENTATION.md
 PAYMENT_MONTH_FEATURE.md
 FILE_UPLOAD_DOCUMENTATION.md
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

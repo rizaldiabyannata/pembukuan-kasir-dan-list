@@ -36,6 +36,21 @@ async function main() {
   await safeDeleteMany("Driver", () => prisma.driver.deleteMany());
   await safeDeleteMany("Armada", () => prisma.armada.deleteMany());
 
+  console.log("Creating admin user for testing...");
+  // Create admin user for Playwright tests
+  const bcrypt = require("bcryptjs");
+  await prisma.user.upsert({
+    where: { username: "admin" },
+    update: {},
+    create: {
+      name: "Admin User",
+      username: "admin",
+      email: "admin@example.com",
+      password: await bcrypt.hash("password123", 10),
+      role: "ADMIN",
+    },
+  });
+
   console.log("Creating sample service packages...");
 
   // CAR RENTAL example
@@ -488,8 +503,6 @@ async function main() {
         checkin_datetime: new Date(2025, 10, tx.day, 20, 0),
         all_in_rate: tx.rate,
         overtime_rate_per_hour: 75000,
-        fuel_cost: tx.fuel,
-        driver_fee: tx.driverFee,
         payment_status: tx.status || "PAID",
         armadaId: armadas[tx.armadaIdx].id,
         driverId: drivers[tx.driverIdx].id,
@@ -603,8 +616,6 @@ async function main() {
         checkin_datetime: new Date(2025, 9, tx.day, 20, 0),
         all_in_rate: tx.rate,
         overtime_rate_per_hour: 75000,
-        fuel_cost: tx.fuel,
-        driver_fee: tx.driverFee,
         payment_status: "PAID",
         armadaId: armadas[tx.armadaIdx].id,
         driverId: drivers[tx.driverIdx].id,
@@ -685,8 +696,6 @@ async function main() {
         checkin_datetime: new Date(2025, 8, tx.day, 20, 0),
         all_in_rate: tx.rate,
         overtime_rate_per_hour: 75000,
-        fuel_cost: tx.fuel,
-        driver_fee: tx.driverFee,
         payment_status: "PAID",
         armadaId: armadas[tx.armadaIdx].id,
         driverId: drivers[tx.driverIdx].id,

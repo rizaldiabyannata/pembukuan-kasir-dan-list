@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import {
   Select,
   SelectContent,
@@ -57,9 +58,26 @@ export default function ArmadaDialog({
   setIsCustomModel,
   handleSubmit,
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await handleSubmit(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm md:max-w-md w-full rounded-lg bg-white p-6 shadow-xl">
+        <LoadingOverlay
+          isVisible={isSubmitting}
+          message="Menyimpan armada..."
+        />
+
         <DialogHeader className="mb-4">
           <DialogTitle>
             {editingArmada ? "Edit Armada" : "Formulir Armada Baru"}
@@ -67,7 +85,7 @@ export default function ArmadaDialog({
           <DialogDescription>Isi detail armada di bawah ini.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <Label className="pb-1" htmlFor="license_plate">
               Nomor Plat
@@ -170,12 +188,15 @@ export default function ArmadaDialog({
           </div>
 
           <div>
-            <Button
+            <LoadingButton
               type="submit"
               className="w-full bg-emerald-700 hover:bg-emerald-600 text-white"
+              isLoading={isSubmitting}
+              loadingText="Menyimpan..."
+              disabled={isSubmitting}
             >
               Simpan
-            </Button>
+            </LoadingButton>
           </div>
         </form>
       </DialogContent>

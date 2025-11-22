@@ -1,11 +1,8 @@
+import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function Spinner({
-  size = "default",
-  className,
-  ...props
-}) {
+function Spinner({ size = "default", className, ...props }) {
   const sizeClasses = {
     sm: "h-4 w-4",
     default: "h-5 w-5",

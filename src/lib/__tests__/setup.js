@@ -39,6 +39,7 @@ jest.mock("lucide-react", () => ({
   Edit: () => "EditIcon",
   Trash: () => "TrashIcon",
   X: () => "XIcon",
+  Loader2: () => "Loader2Icon",
 }));
 
 // Mock sonner toast

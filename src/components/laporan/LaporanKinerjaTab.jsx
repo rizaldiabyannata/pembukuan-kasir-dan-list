@@ -13,9 +13,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Users, Package, TrendingUp, Fuel } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Download } from "lucide-react";
 import { exportPerformanceReport } from "@/lib/excel-export";
+import { ChartSkeleton } from "@/components/ui/chart-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PACKAGE_TYPE_LABELS = {
   CAR_RENTAL: "Sewa Mobil",
@@ -34,6 +36,7 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
   const [fuelData, setFuelData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingFuel, setLoadingFuel] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (!dateRange?.from || !dateRange?.to) return;
@@ -115,11 +118,31 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
 
   if (isLoading || loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">
-          Memuat data kinerja...
-        </span>
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-7 w-48" aria-label="Memuat judul laporan" />
+          <Skeleton className="h-10 w-32" aria-label="Memuat tombol export" />
+        </div>
+
+        {/* Stats cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-1" />
+                <Skeleton className="h-3 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Chart skeleton */}
+        <ChartSkeleton showStats={false} aria-label="Memuat data kinerja" />
       </div>
     );
   }
@@ -146,9 +169,10 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
     }).format(amount);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!performanceData || !fuelData) return;
 
+    setIsExporting(true);
     try {
       const reportDateRange = dateRange
         ? {
@@ -160,9 +184,11 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
             to: new Date().toISOString().split("T")[0],
           };
 
-      exportPerformanceReport(performanceData, fuelData, reportDateRange);
+      await exportPerformanceReport(performanceData, fuelData, reportDateRange);
     } catch (error) {
       console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -171,10 +197,17 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
       {/* Header with Export Button */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Laporan Kinerja</h3>
-        <Button onClick={handleExport} variant="outline" size="sm">
+        <LoadingButton
+          onClick={handleExport}
+          variant="outline"
+          size="sm"
+          isLoading={isExporting}
+          loadingText="Mengekspor..."
+          disabled={!performanceData || !fuelData}
+        >
           <Download className="w-4 h-4 mr-2" />
           Export Excel
-        </Button>
+        </LoadingButton>
       </div>
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
@@ -393,7 +426,12 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
             </CardHeader>
             <CardContent>
               {loadingFuel ? (
-                <div className="flex items-center justify-center p-8">
+                <div
+                  className="flex items-center justify-center p-8"
+                  role="status"
+                  aria-busy="true"
+                  aria-label="Memuat data analisis BBM"
+                >
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   <span className="ml-2 text-muted-foreground">
                     Memuat data analisis BBM...

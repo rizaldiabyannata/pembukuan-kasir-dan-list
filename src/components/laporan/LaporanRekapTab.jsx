@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,6 +18,7 @@ import { formatCurrency } from "@/lib/transaction-utils";
 export default function LaporanRekapTab({ startDate, endDate }) {
   const [rekapData, setRekapData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const fetchRekapData = useCallback(async () => {
     if (!startDate || !endDate) return;
@@ -48,19 +49,33 @@ export default function LaporanRekapTab({ startDate, endDate }) {
     fetchRekapData();
   }, [startDate, endDate, fetchRekapData]);
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (!rekapData) return;
 
-    const reportDateRange = {
-      from: startDate,
-      to: endDate
-    };
+    setIsExporting(true);
+    try {
+      const reportDateRange = {
+        from: startDate,
+        to: endDate,
+      };
 
-    exportRekapReport(rekapData, reportDateRange);
+      await exportRekapReport(rekapData, reportDateRange);
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isLoading) {
-    return <Skeleton className="h-96 w-full" />;
+    return (
+      <Skeleton
+        className="h-96 w-full"
+        role="status"
+        aria-busy="true"
+        aria-label="Memuat rekapitulasi pengeluaran"
+      />
+    );
   }
 
   if (!rekapData) {
@@ -119,10 +134,16 @@ export default function LaporanRekapTab({ startDate, endDate }) {
         </div>
 
         <div className="ml-4">
-          <Button onClick={handleDownloadAll} className="flex items-center gap-2">
+          <LoadingButton
+            onClick={handleDownloadAll}
+            isLoading={isExporting}
+            loadingText="Mengekspor..."
+            disabled={!rekapData}
+            className="flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export Excel Lengkap
-          </Button>
+          </LoadingButton>
         </div>
       </div>
 

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
+import { useActionLoading } from "@/hooks/useActionLoading";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 
 import SopirCard from "@/components/sopir/SopirCard";
 import SopirTopHeader from "@/components/sopir/SopirTopHeader";
@@ -9,7 +11,9 @@ import SopirDialog from "@/components/sopir/SopirDialog";
 
 export default function SopirPage() {
   const { showConfirm } = useAlertDialog();
+  const { executeAction, isActionLoading } = useActionLoading();
   const [drivers, setDrivers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [formData, setFormData] = useState({
@@ -23,6 +27,7 @@ export default function SopirPage() {
 
   async function fetchDrivers() {
     try {
+      setIsLoading(true);
       const response = await fetch("/api/drivers", {
         credentials: "include",
       });
@@ -33,6 +38,8 @@ export default function SopirPage() {
     } catch (err) {
       console.error("Failed to load drivers", err);
       setDrivers([]); // Fallback to empty array
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -107,15 +114,24 @@ export default function SopirPage() {
     });
 
     if (confirmed) {
-      const response = await fetch(`/api/drivers/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (response.ok) {
-        fetchDrivers();
-      } else {
-        console.error("Failed to delete driver");
-      }
+      await executeAction(
+        `delete-${id}`,
+        async () => {
+          const response = await fetch(`/api/drivers/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error("Failed to delete driver");
+          }
+          return response.json();
+        },
+        {
+          successMessage: "Sopir berhasil dihapus",
+          errorMessage: "Gagal menghapus sopir",
+          onSuccess: () => fetchDrivers(),
+        }
+      );
     }
   };
 
@@ -139,31 +155,37 @@ export default function SopirPage() {
           onSearchChange={handleSearchChange}
         />
         <div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {drivers
-              .filter((d) => {
-                const q = searchTerm.trim().toLowerCase();
-                return (
-                  !q ||
-                  (d.driver_name && d.driver_name.toLowerCase().includes(q)) ||
-                  (d.phone_number && d.phone_number.toLowerCase().includes(q))
-                );
-              })
-              .map((driver) => {
-                const isDriverInUse =
-                  driver.status === "BOOKED" || driver.status === "ON_TRIP";
-                return (
-                  <SopirCard
-                    key={driver.id}
-                    driver={driver}
-                    onEdit={handleEdit}
-                    onSetStatus={handleSetStatus}
-                    onDelete={handleDelete}
-                    isDisabled={isDriverInUse}
-                  />
-                );
-              })}
-          </div>
+          {isLoading ? (
+            <CardSkeleton count={6} variant="detailed" />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {drivers
+                .filter((d) => {
+                  const q = searchTerm.trim().toLowerCase();
+                  return (
+                    !q ||
+                    (d.driver_name &&
+                      d.driver_name.toLowerCase().includes(q)) ||
+                    (d.phone_number && d.phone_number.toLowerCase().includes(q))
+                  );
+                })
+                .map((driver) => {
+                  const isDriverInUse =
+                    driver.status === "BOOKED" || driver.status === "ON_TRIP";
+                  return (
+                    <SopirCard
+                      key={driver.id}
+                      driver={driver}
+                      onEdit={handleEdit}
+                      onSetStatus={handleSetStatus}
+                      onDelete={handleDelete}
+                      isDisabled={isDriverInUse}
+                      isDeleting={isActionLoading(`delete-${driver.id}`)}
+                    />
+                  );
+                })}
+            </div>
+          )}
         </div>
 
         <SopirDialog

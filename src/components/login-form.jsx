@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,15 +20,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, AlertCircle, Wifi, Lock, UserX } from "lucide-react";
+import { toast } from "sonner";
 
 export function LoginForm({ className, ...props }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [error, setError] = useState(null); // Change to object: { message, icon, title }
   const [isLoading, setIsLoading] = useState(false);
+
+  // Display error message from query parameters
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      // Decode the error message
+      const decodedError = decodeURIComponent(errorParam);
+
+      // Display toast notification
+      toast.error("Akses Ditolak", {
+        description: decodedError,
+        duration: 5000,
+      });
+
+      // Remove error parameter from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("error");
+      window.history.replaceState({}, "", newUrl.toString());
+    }
+  }, [searchParams]);
 
   const handleChange = (e) => {
     setFormData({
@@ -41,11 +63,12 @@ export function LoginForm({ className, ...props }) {
 
   const getErrorDetails = (error) => {
     // Handle network errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+    if (error.name === "TypeError" && error.message.includes("fetch")) {
       return {
         title: "Koneksi Bermasalah",
-        message: "Tidak dapat terhubung ke server. Periksa koneksi internet Anda dan coba lagi.",
-        icon: Wifi
+        message:
+          "Tidak dapat terhubung ke server. Periksa koneksi internet Anda dan coba lagi.",
+        icon: Wifi,
       };
     }
 
@@ -59,13 +82,14 @@ export function LoginForm({ className, ...props }) {
         return {
           title: "Akun Terkunci",
           message: `Akun Anda terkunci karena terlalu banyak percobaan login gagal. Coba lagi dalam ${minutes} menit.`,
-          icon: Lock
+          icon: Lock,
         };
       }
       return {
         title: "Akun Terkunci",
-        message: "Akun Anda terkunci karena terlalu banyak percobaan login gagal. Coba lagi nanti.",
-        icon: Lock
+        message:
+          "Akun Anda terkunci karena terlalu banyak percobaan login gagal. Coba lagi nanti.",
+        icon: Lock,
       };
     }
 
@@ -77,7 +101,7 @@ export function LoginForm({ className, ...props }) {
         return {
           title: "Login Gagal",
           message: `Email atau password salah. Sisa percobaan: ${attempts}.`,
-          icon: AlertCircle
+          icon: AlertCircle,
         };
       }
     }
@@ -86,8 +110,9 @@ export function LoginForm({ className, ...props }) {
     if (message.includes("Too many failed login attempts")) {
       return {
         title: "Akun Terkunci",
-        message: "Terlalu banyak percobaan login gagal. Akun terkunci selama 30 menit.",
-        icon: Lock
+        message:
+          "Terlalu banyak percobaan login gagal. Akun terkunci selama 30 menit.",
+        icon: Lock,
       };
     }
 
@@ -95,27 +120,32 @@ export function LoginForm({ className, ...props }) {
     const errorMap = {
       "Invalid username or password": {
         title: "Kredensial Salah",
-        message: "Email atau password yang Anda masukkan salah. Silakan periksa dan coba lagi.",
-        icon: AlertCircle
+        message:
+          "Email atau password yang Anda masukkan salah. Silakan periksa dan coba lagi.",
+        icon: AlertCircle,
       },
       "Account is deactivated": {
         title: "Akun Dinonaktifkan",
-        message: "Akun Anda telah dinonaktifkan. Silakan hubungi administrator untuk bantuan.",
-        icon: UserX
+        message:
+          "Akun Anda telah dinonaktifkan. Silakan hubungi administrator untuk bantuan.",
+        icon: UserX,
       },
       "An error occurred during login": {
         title: "Kesalahan Server",
-        message: "Terjadi kesalahan server. Silakan coba lagi dalam beberapa saat.",
-        icon: AlertCircle
-      }
+        message:
+          "Terjadi kesalahan server. Silakan coba lagi dalam beberapa saat.",
+        icon: AlertCircle,
+      },
     };
 
     // Return mapped error or default
-    return errorMap[message] || {
-      title: "Kesalahan Login",
-      message: message,
-      icon: AlertCircle
-    };
+    return (
+      errorMap[message] || {
+        title: "Kesalahan Login",
+        message: message,
+        icon: AlertCircle,
+      }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -129,7 +159,7 @@ export function LoginForm({ className, ...props }) {
         setError({
           title: "Data Tidak Lengkap",
           message: "Email dan password wajib diisi untuk melanjutkan login.",
-          icon: AlertCircle
+          icon: AlertCircle,
         });
         setIsLoading(false);
         return;
@@ -141,7 +171,7 @@ export function LoginForm({ className, ...props }) {
         setError({
           title: "Format Email Salah",
           message: "Format email tidak valid. Pastikan email Anda benar.",
-          icon: AlertCircle
+          icon: AlertCircle,
         });
         setIsLoading(false);
         return;
@@ -200,7 +230,9 @@ export function LoginForm({ className, ...props }) {
                 <Alert variant="destructive">
                   <error.icon className="h-4 w-4" />
                   <div className="flex flex-col gap-1">
-                    <AlertTitle className="text-sm font-medium">{error.title}</AlertTitle>
+                    <AlertTitle className="text-sm font-medium">
+                      {error.title}
+                    </AlertTitle>
                     <AlertDescription>{error.message}</AlertDescription>
                   </div>
                 </Alert>

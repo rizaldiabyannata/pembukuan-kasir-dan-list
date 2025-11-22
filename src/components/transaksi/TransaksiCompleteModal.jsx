@@ -9,6 +9,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -127,7 +130,14 @@ export default function TransaksiCompleteModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto relative"
+        aria-busy={isLoading}
+      >
+        <LoadingOverlay
+          isVisible={isLoading}
+          message="Memproses transaksi..."
+        />
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
@@ -328,12 +338,20 @@ export default function TransaksiCompleteModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+          >
             Batal
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Menyimpan..." : "Selesaikan Transaksi"}
-          </Button>
+          <LoadingButton
+            onClick={handleSubmit}
+            isLoading={isLoading}
+            loadingText="Menyimpan..."
+          >
+            Selesaikan Transaksi
+          </LoadingButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

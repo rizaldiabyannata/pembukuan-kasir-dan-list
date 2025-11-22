@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
+import { useActionLoading } from "@/hooks/useActionLoading";
 import TransaksiHeader from "@/components/transaksi/TransaksiHeader";
 import TransaksiFilters from "@/components/transaksi/TransaksiFilters";
 import TransaksiTable from "@/components/transaksi/TransaksiTable";
@@ -14,7 +16,10 @@ import TransactionEditApprovalDialog from "@/components/transaksi/TransactionEdi
 import { Pagination } from "@/components/ui/pagination";
 
 import { startOfMonth, startOfYear, endOfToday } from "date-fns";
-import { calculateTransactionFinancials, calculateTourPackagePriceFromParams } from "@/lib/accounting";
+import {
+  calculateTransactionFinancials,
+  calculateTourPackagePriceFromParams,
+} from "@/lib/accounting";
 
 function getTodayDateString() {
   const today = new Date();
@@ -87,6 +92,8 @@ const INITIAL_FORM_STATE = {
 
 export default function TransaksiPage() {
   const { showConfirm } = useAlertDialog();
+  const searchParams = useSearchParams();
+  const { loadingActions, executeAction } = useActionLoading();
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState("OPERATOR");
@@ -105,6 +112,8 @@ export default function TransaksiPage() {
   const [viewingData, setViewingData] = useState(null);
   const [approvingTransaction, setApprovingTransaction] = useState(null);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+  const [isCompletingTransaction, setIsCompletingTransaction] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
   // State untuk Edit Approval Dialog (Admin)
   const [isEditApprovalOpen, setIsEditApprovalOpen] = useState(false);
@@ -125,6 +134,26 @@ export default function TransaksiPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
+
+  // Display error message from query parameters
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      // Decode the error message
+      const decodedError = decodeURIComponent(errorParam);
+
+      // Display toast notification
+      toast.error("Akses Ditolak", {
+        description: decodedError,
+        duration: 5000,
+      });
+
+      // Remove error parameter from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("error");
+      window.history.replaceState({}, "", newUrl.toString());
+    }
+  }, [searchParams]);
 
   // Fetch user role on mount
   useEffect(() => {
@@ -524,7 +553,8 @@ export default function TransaksiPage() {
       setFormData((prev) => {
         const currentPackage = paketList.find((p) => p.id === prev.packageId);
         if (currentPackage?.type === "TOUR_PACKAGE") {
-          const hotelTierId = id === "hotel_tier_id" ? value : prev.hotel_tier_id;
+          const hotelTierId =
+            id === "hotel_tier_id" ? value : prev.hotel_tier_id;
           const paxCount = id === "pax_count" ? value : prev.pax_count;
           const calculatedPrice = calculateTourPackagePriceFromParams(
             currentPackage,
@@ -635,20 +665,21 @@ export default function TransaksiPage() {
 
     if (!confirmed) return;
 
-    try {
-      const res = await fetch(`/api/transactions/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("delete failed");
-      await fetchData(1); // Reset to first page after successful operation
-      toast.success("Transaksi berhasil dihapus");
-    } catch (err) {
-      console.error("Failed to delete", err);
-      toast.error("Gagal menghapus transaksi", {
-        description: err.message,
-      });
-    }
+    await executeAction(
+      `delete-${id}`,
+      async () => {
+        const res = await fetch(`/api/transactions/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("delete failed");
+        await fetchData(1); // Reset to first page after successful operation
+      },
+      {
+        successMessage: "Transaksi berhasil dihapus",
+        errorMessage: "Gagal menghapus transaksi",
+      }
+    );
   };
 
   const handleUpdateStatus = async (id, newStatus) => {
@@ -711,6 +742,8 @@ export default function TransaksiPage() {
       });
       return;
     }
+
+    setIsSubmittingForm(true);
     try {
       const method = editingData ? "PUT" : "POST";
       const url = editingData
@@ -790,6 +823,8 @@ export default function TransaksiPage() {
       toast.error("Gagal menyimpan transaksi", {
         description: err.message,
       });
+    } finally {
+      setIsSubmittingForm(false);
     }
   };
 
@@ -807,27 +842,26 @@ export default function TransaksiPage() {
 
     if (!confirmed) return;
 
-    try {
-      const res = await fetch(`/api/transactions/${id}/submit`, {
-        method: "POST",
-        credentials: "include",
-      });
+    await executeAction(
+      `submit-approval-${id}`,
+      async () => {
+        const res = await fetch(`/api/transactions/${id}/submit`, {
+          method: "POST",
+          credentials: "include",
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Gagal mengajukan approval");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Gagal mengajukan approval");
+        }
+
+        await fetchData(currentPage);
+      },
+      {
+        successMessage: "Transaksi Berhasil Diajukan",
+        errorMessage: "Gagal Mengajukan Approval",
       }
-
-      await fetchData(currentPage);
-      toast.success("Transaksi Berhasil Diajukan", {
-        description: "Menunggu persetujuan dari admin",
-      });
-    } catch (err) {
-      console.error("Failed to submit for approval:", err);
-      toast.error("Gagal Mengajukan Approval", {
-        description: err.message,
-      });
-    }
+    );
   };
 
   const handleApprove = async (transactionId) => {
@@ -999,6 +1033,7 @@ export default function TransaksiPage() {
       return;
     }
 
+    setIsCompletingTransaction(true);
     try {
       console.log(
         "Making API call to complete transaction:",
@@ -1046,6 +1081,8 @@ export default function TransaksiPage() {
         description:
           err.message || "Terjadi kesalahan saat menyelesaikan transaksi",
       });
+    } finally {
+      setIsCompletingTransaction(false);
     }
   };
 
@@ -1078,6 +1115,7 @@ export default function TransaksiPage() {
           onReject={openApprovalDialog}
           onReviewEditApproval={handleReviewEditApproval}
           userRole={userRole}
+          loadingActions={loadingActions}
         />
 
         <div className="mt-4">
@@ -1105,6 +1143,7 @@ export default function TransaksiPage() {
         sopirList={sopirList}
         isLoadingDependencies={isLoadingDependencies}
         userRole={userRole}
+        isSubmitting={isSubmittingForm}
       />
 
       <TransaksiDetailModal
@@ -1119,7 +1158,7 @@ export default function TransaksiPage() {
         onOpenChange={setIsCompleteOpen}
         transaction={completingData}
         onComplete={handleCompleteTransaction}
-        isLoading={false}
+        isLoading={isCompletingTransaction}
       />
 
       <ApprovalDialog

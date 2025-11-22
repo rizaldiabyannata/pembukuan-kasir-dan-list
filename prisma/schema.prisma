@@ -76,6 +76,7 @@ enum AuditAction {
   REQUEST_DELETE
   APPROVE_EDIT
   APPROVE_DELETE
+  ACCESS_DENIED
 }
 
 enum StaffStatus {

@@ -32,7 +32,7 @@ import {
   CheckSquare,
   XSquare,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import ApprovalStatusBadge from "./ApprovalStatusBadge";
 import { Spinner } from "@/components/ui/spinner";
@@ -134,59 +134,17 @@ export default function TransaksiTable({
 
   if (isLoading) {
     return (
-      <div className="rounded-md border">
-        <Table className="min-w-full">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tanggal</TableHead>
-              <TableHead>Invoice</TableHead>
-              <TableHead>Pelanggan</TableHead>
-              <TableHead>Jasa</TableHead>
-              <TableHead>Armada</TableHead>
-              <TableHead className="text-right">Total Tagihan</TableHead>
-              <TableHead className="text-right">Sisa Tagihan</TableHead>
-              <TableHead className="w-[180px]">Status Pembayaran</TableHead>
-              <TableHead className="w-[150px]">Status Approval</TableHead>
-              <TableHead className="w-[180px]">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-16" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-4 w-20 ml-auto" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-4 w-20 ml-auto" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-10 w-full" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-8 w-20" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div
+        className="rounded-md border"
+        role="region"
+        aria-label="Tabel transaksi"
+      >
+        <TableSkeleton
+          rows={5}
+          columns={10}
+          showHeader={true}
+          aria-label="Memuat data transaksi..."
+        />
       </div>
     );
   }
@@ -419,7 +377,10 @@ export default function TransaksiTable({
                       onValueChange={(newStatus) =>
                         onUpdateStatus(item.id, newStatus)
                       }
-                      disabled={isCompleted || loadingActions[`update-status-${item.id}`]}
+                      disabled={
+                        isCompleted ||
+                        loadingActions[`update-status-${item.id}`]
+                      }
                     >
                       <SelectTrigger
                         className={cn(
@@ -486,7 +447,9 @@ export default function TransaksiTable({
                           {canSubmitForApproval && (
                             <DropdownMenuItem
                               onClick={() => onSubmitForApproval(item.id)}
-                              disabled={loadingActions[`submit-approval-${item.id}`]}
+                              disabled={
+                                loadingActions[`submit-approval-${item.id}`]
+                              }
                             >
                               {loadingActions[`submit-approval-${item.id}`] ? (
                                 <>
@@ -642,7 +605,9 @@ export default function TransaksiTable({
                           onClick={() => onSubmitForApproval(item.id)}
                           className="text-blue-600 hover:text-blue-700"
                           title="Ajukan untuk approval"
-                          disabled={loadingActions[`submit-approval-${item.id}`]}
+                          disabled={
+                            loadingActions[`submit-approval-${item.id}`]
+                          }
                         >
                           {loadingActions[`submit-approval-${item.id}`] ? (
                             <Spinner size="sm" />

@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -39,7 +40,6 @@ import {
   DollarSign,
   BarChart3,
 } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@/lib/transaction-utils";
 import { exportIncomeReport } from "@/lib/excel-export";
 
@@ -97,7 +97,7 @@ export default function LaporanPemasukanTab({
     setExpandedPackages(newExpanded);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!filteredData) {
       console.error("No data available for export");
       return;
@@ -116,9 +116,12 @@ export default function LaporanPemasukanTab({
       const toStr = formatDate(dateRange.to);
 
       const reportDateRange = { from: fromStr, to: toStr };
-      const filters = selectedPackageType !== "all" ? { packageType: selectedPackageType } : {};
+      const filters =
+        selectedPackageType !== "all"
+          ? { packageType: selectedPackageType }
+          : {};
 
-      exportIncomeReport(filteredData, reportDateRange, filters);
+      await exportIncomeReport(filteredData, reportDateRange, filters);
     } catch (error) {
       console.error("Export failed:", error);
       // TODO: Show error toast
@@ -129,20 +132,27 @@ export default function LaporanPemasukanTab({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" role="status" aria-busy="true">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold">Laporan Pemasukan</h3>
-          <div className="animate-pulse h-10 w-32 bg-gray-200 rounded"></div>
+          <div
+            className="animate-pulse h-10 w-32 bg-gray-200 rounded"
+            aria-label="Memuat tombol export"
+          ></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
               className="animate-pulse h-24 bg-gray-200 rounded"
+              aria-label={`Memuat statistik ${i + 1}`}
             ></div>
           ))}
         </div>
-        <div className="animate-pulse h-96 bg-gray-200 rounded"></div>
+        <div
+          className="animate-pulse h-96 bg-gray-200 rounded"
+          aria-label="Memuat data pemasukan"
+        ></div>
       </div>
     );
   }
@@ -178,19 +188,17 @@ export default function LaporanPemasukanTab({
               <SelectItem value="CUSTOM_PRICING">Harga Custom</SelectItem>
             </SelectContent>
           </Select>
-          <Button
+          <LoadingButton
             onClick={handleExport}
             variant="outline"
             size="sm"
-            disabled={isExporting}
+            isLoading={isExporting}
+            loadingText="Mengekspor..."
+            disabled={!filteredData}
           >
-            {isExporting ? (
-              <Spinner size="sm" className="mr-2" />
-            ) : (
-              <Download className="w-4 h-4 mr-2" />
-            )}
-            {isExporting ? "Mengekspor..." : "Export"}
-          </Button>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </LoadingButton>
         </div>
       </div>
 

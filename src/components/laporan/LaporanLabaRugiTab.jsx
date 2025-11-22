@@ -1,6 +1,6 @@
 "use client";
-import React from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Badge } from "@/components/ui/badge";
 import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,24 +15,40 @@ const formatCurrency = (amount) =>
   }).format(amount || 0);
 
 export default function LaporanLabaRugiTab({ data, isLoading, dateRange }) {
-  const handleDownload = () => {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleDownload = async () => {
     if (!data) return;
 
-    const reportDateRange = dateRange
-      ? {
-          from: dateRange.from.toISOString().split("T")[0],
-          to: dateRange.to.toISOString().split("T")[0],
-        }
-      : {
-          from: new Date().toISOString().split("T")[0],
-          to: new Date().toISOString().split("T")[0],
-        };
+    setIsExporting(true);
+    try {
+      const reportDateRange = dateRange
+        ? {
+            from: dateRange.from.toISOString().split("T")[0],
+            to: dateRange.to.toISOString().split("T")[0],
+          }
+        : {
+            from: new Date().toISOString().split("T")[0],
+            to: new Date().toISOString().split("T")[0],
+          };
 
-    exportIncomeStatement(data, reportDateRange);
+      await exportIncomeStatement(data, reportDateRange);
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isLoading) {
-    return <Skeleton className="h-64 w-full" />;
+    return (
+      <Skeleton
+        className="h-64 w-full"
+        role="status"
+        aria-busy="true"
+        aria-label="Memuat laporan laba rugi"
+      />
+    );
   }
 
   if (!data) {
@@ -122,10 +138,16 @@ export default function LaporanLabaRugiTab({ data, isLoading, dateRange }) {
               </span>
             )}
           </div>
-          <Button onClick={handleDownload} size="sm">
+          <LoadingButton
+            onClick={handleDownload}
+            size="sm"
+            isLoading={isExporting}
+            loadingText="Mengekspor..."
+            disabled={!data}
+          >
             <Download className="mr-2 h-4 w-4" />
             Download Excel
-          </Button>
+          </LoadingButton>
         </div>
 
         <div className="overflow-x-auto">

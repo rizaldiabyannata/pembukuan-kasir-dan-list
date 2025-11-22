@@ -12,6 +12,7 @@ import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 import { toast } from "sonner";
 import { startOfMonth, startOfYear, endOfToday } from "date-fns";
 import { Pagination } from "@/components/ui/pagination";
+import { useActionLoading } from "@/hooks/useActionLoading";
 
 // Helper untuk format tanggal YYYY-MM-DD
 function getTodayDateString() {
@@ -90,7 +91,9 @@ export default function PengeluaranPage() {
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [proposedChanges, setProposedChanges] = useState(null);
   const [updatedData, setUpdatedData] = useState(null);
-  const [loadingActions, setLoadingActions] = useState({}); // Track loading states for individual actions
+
+  // Use the useActionLoading hook for item-specific loading states
+  const { loadingActions, executeAction } = useActionLoading();
 
   const [armadaList, setArmadaList] = useState([]);
   const [driverList, setDriverList] = useState([]);
@@ -463,24 +466,24 @@ export default function PengeluaranPage() {
 
     if (!confirmed) return;
 
-    setLoadingActions(prev => ({ ...prev, [`delete-${id}`]: true }));
-    try {
-      console.log("Menghapus data ID:", id);
-      const res = await fetch(`/api/expenses/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("delete failed");
+    await executeAction(
+      `delete-${id}`,
+      async () => {
+        console.log("Menghapus data ID:", id);
+        const res = await fetch(`/api/expenses/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("delete failed");
 
-      // Optimistic UI: Hapus dari state
-      setData((prev) => prev.filter((item) => item.id !== id));
-      toast.success("Pengeluaran berhasil dihapus");
-    } catch (err) {
-      console.error("Failed to delete", err);
-      toast.error("Gagal menghapus pengeluaran");
-    } finally {
-      setLoadingActions(prev => ({ ...prev, [`delete-${id}`]: false }));
-    }
+        // Optimistic UI: Hapus dari state
+        setData((prev) => prev.filter((item) => item.id !== id));
+      },
+      {
+        successMessage: "Pengeluaran berhasil dihapus",
+        errorMessage: "Gagal menghapus pengeluaran",
+      }
+    );
   };
 
   // === APPROVAL WORKFLOW HANDLERS ===
@@ -505,16 +508,26 @@ export default function PengeluaranPage() {
 
     // Calculate proposed changes (only changed fields for display)
     const proposedChanges = {};
-    if (formData.date !== editingData.date) proposedChanges.date = formData.date;
-    if (formData.paymentMonth !== editingData.paymentMonth) proposedChanges.paymentMonth = formData.paymentMonth;
-    if (formData.category !== editingData.category) proposedChanges.category = formData.category;
-    if (formData.kategoriLainnya !== editingData.kategoriLainnya) proposedChanges.kategoriLainnya = formData.kategoriLainnya;
-    if (formData.description !== editingData.description) proposedChanges.description = formData.description;
-    if (formData.amount !== editingData.amount) proposedChanges.amount = formData.amount;
-    if (formData.armadaId !== editingData.armadaId) proposedChanges.armadaId = formData.armadaId;
-    if (formData.driverId !== editingData.driverId) proposedChanges.driverId = formData.driverId;
-    if (formData.staffId !== editingData.staffId) proposedChanges.staffId = formData.staffId;
-    if (formData.namaPenerima !== editingData.namaPenerima) proposedChanges.namaPenerima = formData.namaPenerima;
+    if (formData.date !== editingData.date)
+      proposedChanges.date = formData.date;
+    if (formData.paymentMonth !== editingData.paymentMonth)
+      proposedChanges.paymentMonth = formData.paymentMonth;
+    if (formData.category !== editingData.category)
+      proposedChanges.category = formData.category;
+    if (formData.kategoriLainnya !== editingData.kategoriLainnya)
+      proposedChanges.kategoriLainnya = formData.kategoriLainnya;
+    if (formData.description !== editingData.description)
+      proposedChanges.description = formData.description;
+    if (formData.amount !== editingData.amount)
+      proposedChanges.amount = formData.amount;
+    if (formData.armadaId !== editingData.armadaId)
+      proposedChanges.armadaId = formData.armadaId;
+    if (formData.driverId !== editingData.driverId)
+      proposedChanges.driverId = formData.driverId;
+    if (formData.staffId !== editingData.staffId)
+      proposedChanges.staffId = formData.staffId;
+    if (formData.namaPenerima !== editingData.namaPenerima)
+      proposedChanges.namaPenerima = formData.namaPenerima;
 
     // Check if there are any changes
     if (Object.keys(proposedChanges).length === 0) {
@@ -547,50 +560,42 @@ export default function PengeluaranPage() {
 
   // Handler: Submit request (edit atau delete)
   const handleSubmitRequest = async (expenseId, reason) => {
-    setLoadingActions(prev => ({ ...prev, [`submit-request-${expenseId}`]: true }));
-    try {
-      const endpoint =
-        requestType === "edit"
-          ? `/api/expenses/${expenseId}/request-edit`
-          : `/api/expenses/${expenseId}/request-delete`;
+    await executeAction(
+      `submit-request-${expenseId}`,
+      async () => {
+        const endpoint =
+          requestType === "edit"
+            ? `/api/expenses/${expenseId}/request-edit`
+            : `/api/expenses/${expenseId}/request-delete`;
 
-      const body =
-        requestType === "edit"
-          ? { reason, updatedData: updatedData || {} }
-          : { reason };
+        const body =
+          requestType === "edit"
+            ? { reason, updatedData: updatedData || {} }
+            : { reason };
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Gagal mengajukan request");
-      }
-
-      await fetchData(currentPage); // Refresh data
-      toast.success(
-        `Permintaan ${requestType === "edit" ? "perubahan" : "penghapusan"} berhasil diajukan`,
-        {
-          description: "Menunggu persetujuan dari administrator",
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Gagal mengajukan request");
         }
-      );
-      setIsRequestDialogOpen(false);
-      setIsDialogOpen(false); // Close the edit dialog too
-      setProposedChanges(null);
-      setUpdatedData(null);
-    } catch (err) {
-      console.error("Failed to submit request:", err);
-      toast.error("Gagal Mengirim Permintaan", {
-        description: err.message,
-      });
-      throw err;
-    } finally {
-      setLoadingActions(prev => ({ ...prev, [`submit-request-${expenseId}`]: false }));
-    }
+
+        await fetchData(currentPage); // Refresh data
+        setIsRequestDialogOpen(false);
+        setIsDialogOpen(false); // Close the edit dialog too
+        setProposedChanges(null);
+        setUpdatedData(null);
+      },
+      {
+        successMessage: `Permintaan ${requestType === "edit" ? "perubahan" : "penghapusan"} berhasil diajukan`,
+        errorMessage: "Gagal mengirim permintaan",
+      }
+    );
   };
 
   // Handler: Admin review approval

@@ -8,6 +8,7 @@ import { PackageForm } from "@/components/packages/PackageForm";
 import { PackageList } from "@/components/packages/PackageList";
 import { PackageDetail } from "@/components/packages/PackageDetail";
 import { DeleteConfirmation } from "@/components/packages/DeleteConfirmation";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState(null); // null = loading, [] = empty, [...] = loaded
@@ -167,18 +168,7 @@ export default function PackagesPage() {
 
       <div className="p-4">
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-lg border bg-white p-4"
-              >
-                <div className="h-36 bg-slate-100 rounded mb-3" />
-                <div className="h-4 bg-slate-100 rounded w-1/2 mb-2" />
-                <div className="h-3 bg-slate-100 rounded w-1/3" />
-              </div>
-            ))}
-          </div>
+          <CardSkeleton count={6} variant="detailed" />
         ) : packages.length === 0 ? (
           <div className="rounded-lg border-dashed border-2 border-slate-200 p-6 text-center">
             <p className="text-lg font-medium mb-2">Belum ada paket jasa</p>

@@ -25,7 +25,7 @@ import {
   FileText,
   CheckSquare,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import ExpenseApprovalBadge from "./ExpenseApprovalBadge";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -90,47 +90,8 @@ export default function PengeluaranTable({
   const isRoleLoading = userRole === null;
   if (isLoading) {
     return (
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tanggal</TableHead>
-              <TableHead>Bulan</TableHead>
-              <TableHead>Kategori</TableHead>
-              <TableHead>Deskripsi</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right w-[180px]">Jumlah</TableHead>
-              <TableHead className="w-[180px]">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 3 }).map((_, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <Skeleton className="h-4 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-48" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-4 w-20 ml-auto" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-8 w-8" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="rounded-md border" aria-busy="true">
+        <TableSkeleton rows={5} columns={7} showHeader={true} />
       </div>
     );
   }
@@ -169,11 +130,15 @@ export default function PengeluaranTable({
             const canRequestActions =
               isOperator && !isRoleLoading && approvalStatus === "APPROVED";
             const canReview = isAdmin && !isRoleLoading && hasPendingRequest;
-            const canDeleteDirectly = isAdmin && !isRoleLoading && !hasPendingRequest;
-            const canEditDirectly = !isRoleLoading && (
-              isAdmin ||
-              (isOperator && (approvalStatus === "DRAFT" || approvalStatus === null || approvalStatus === "APPROVED"))
-            );
+            const canDeleteDirectly =
+              isAdmin && !isRoleLoading && !hasPendingRequest;
+            const canEditDirectly =
+              !isRoleLoading &&
+              (isAdmin ||
+                (isOperator &&
+                  (approvalStatus === "DRAFT" ||
+                    approvalStatus === null ||
+                    approvalStatus === "APPROVED")));
 
             return (
               <TableRow key={item.id}>
@@ -249,7 +214,9 @@ export default function PengeluaranTable({
                           <>
                             <DropdownMenuItem
                               onClick={() => onRequestEdit(item)}
-                              disabled={loadingActions[`submit-request-${item.id}`]}
+                              disabled={
+                                loadingActions[`submit-request-${item.id}`]
+                              }
                             >
                               {loadingActions[`submit-request-${item.id}`] ? (
                                 <>
@@ -266,7 +233,9 @@ export default function PengeluaranTable({
                             <DropdownMenuItem
                               onClick={() => onRequestDelete(item)}
                               className="text-orange-600"
-                              disabled={loadingActions[`submit-request-${item.id}`]}
+                              disabled={
+                                loadingActions[`submit-request-${item.id}`]
+                              }
                             >
                               {loadingActions[`submit-request-${item.id}`] ? (
                                 <>
@@ -368,7 +337,8 @@ export default function PengeluaranTable({
                             <Spinner size="sm" />
                           ) : (
                             <>
-                              <FileText className="mr-1 h-3 w-3" /> Request Delete
+                              <FileText className="mr-1 h-3 w-3" /> Request
+                              Delete
                             </>
                           )}
                         </Button>

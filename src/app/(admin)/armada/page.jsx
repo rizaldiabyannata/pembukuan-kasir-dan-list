@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
+import { useActionLoading } from "@/hooks/useActionLoading";
 import ArmadaHeader from "@/components/armada/ArmadaHeader";
 import ArmadaFilters from "@/components/armada/ArmadaFilters";
 import ArmadaCard from "@/components/armada/ArmadaCard";
@@ -9,7 +11,7 @@ import ArmadaDialog from "@/components/armada/ArmadaDialog";
 
 export default function ArmadaPage() {
   const [armadas, setArmadas] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -22,6 +24,9 @@ export default function ArmadaPage() {
     description: "",
   });
   const [isCustomModel, setIsCustomModel] = useState(false);
+
+  // Use action loading hook for item-specific loading states
+  const { executeAction, isActionLoading } = useActionLoading();
 
   async function fetchArmadas() {
     try {
@@ -112,33 +117,43 @@ export default function ArmadaPage() {
   };
 
   const handleDelete = async (id) => {
-    try {
-      const res = await fetch(`/api/vehicles/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("delete failed");
-      await fetchArmadas();
-    } catch (err) {
-      console.error("Failed to delete", err);
-    }
+    await executeAction(
+      `delete-${id}`,
+      async () => {
+        const res = await fetch(`/api/vehicles/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Gagal menghapus armada");
+        await fetchArmadas();
+      },
+      {
+        successMessage: "Armada berhasil dihapus",
+        errorMessage: "Gagal menghapus armada",
+      }
+    );
   };
 
   const handleMaintenance = async (armada) => {
-    try {
-      // Set status to MAINTENANCE (align with Prisma enum)
-      const payload = { ...armada, status: "MAINTENANCE" };
-      const res = await fetch(`/api/vehicles/${armada.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("maintenance update failed");
-      await fetchArmadas();
-    } catch (err) {
-      console.error("Failed to update maintenance status", err);
-    }
+    await executeAction(
+      `maintenance-${armada.id}`,
+      async () => {
+        // Set status to MAINTENANCE (align with Prisma enum)
+        const payload = { ...armada, status: "MAINTENANCE" };
+        const res = await fetch(`/api/vehicles/${armada.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Gagal mengubah status maintenance");
+        await fetchArmadas();
+      },
+      {
+        successMessage: "Status maintenance berhasil diubah",
+        errorMessage: "Gagal mengubah status maintenance",
+      }
+    );
   };
 
   const openNewArmadaDialog = () => {
@@ -168,18 +183,7 @@ export default function ArmadaPage() {
 
       <div className="p-4">
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-lg border bg-white p-4"
-              >
-                <div className="h-36 bg-slate-100 rounded mb-3" />
-                <div className="h-4 bg-slate-100 rounded w-1/2 mb-2" />
-                <div className="h-3 bg-slate-100 rounded w-1/3" />
-              </div>
-            ))}
-          </div>
+          <CardSkeleton count={6} variant="detailed" />
         ) : filteredArmadas.length === 0 ? (
           <div className="rounded-lg border-dashed border-2 border-slate-200 p-6 text-center">
             <p className="text-lg font-medium mb-2">Belum ada armada</p>
@@ -201,6 +205,8 @@ export default function ArmadaPage() {
                   onDelete={handleDelete}
                   onMaintenance={handleMaintenance}
                   isDisabled={isArmadaInUse}
+                  isDeleting={isActionLoading(`delete-${a.id}`)}
+                  isMaintenance={isActionLoading(`maintenance-${a.id}`)}
                 />
               );
             })}

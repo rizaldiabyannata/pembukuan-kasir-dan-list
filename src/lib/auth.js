@@ -70,8 +70,32 @@ export async function verifyToken(token) {
  * @returns {Promise<object>} Session object with token
  */
 export async function createSession(userId, ipAddress, userAgent) {
-  // Generate session token
-  const token = await generateToken({ userId });
+  // Get user data first to include in JWT
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      name: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // Generate session token with user data for edge runtime
+  const token = await generateToken({
+    userId: user.id,
+    role: user.role,
+    email: user.email,
+    username: user.username,
+    name: user.name,
+    isActive: user.isActive,
+  });
 
   // Calculate expiry date
   const expiresAt = new Date();
@@ -105,6 +129,13 @@ export async function createSession(userId, ipAddress, userAgent) {
 
 /**
  * Get session from token
+ * IMPORTANT: This function performs full database validation and should be used in:
+ * - API routes (Node.js runtime)
+ * - Server components
+ * - Server actions
+ *
+ * DO NOT use in middleware (edge runtime) - use validateSession from route-protection.js instead
+ *
  * @param {string} token - Session token
  * @returns {Promise<object|null>} Session object or null
  */

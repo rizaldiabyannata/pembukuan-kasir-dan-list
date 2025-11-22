@@ -10,6 +10,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Upload, X, FileText, Image as ImageIcon } from "lucide-react";
 import ExpenseFilePreview from "./ExpenseFilePreview";
-import { Spinner } from "@/components/ui/spinner";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 const kategoriOptions = [
   { value: "LISTRIK", label: "Listrik" },
@@ -533,29 +534,30 @@ export default function PengeluaranDialog({
           )}
         </form>
 
+        <LoadingOverlay
+          isVisible={isLoading}
+          message={
+            isOperatorRequest
+              ? "Mengajukan persetujuan..."
+              : "Menyimpan data..."
+          }
+        />
+
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isLoading}>
               Batal
             </Button>
           </DialogClose>
-          <Button
+          <LoadingButton
             type={isOperatorRequest ? "button" : "submit"}
             form="pengeluaran-form"
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText={isOperatorRequest ? "Mengajukan..." : "Menyimpan..."}
             onClick={isOperatorRequest ? onRequestApproval : undefined}
           >
-            {isLoading ? (
-              <>
-                <Spinner size="sm" className="mr-2" />
-                {isOperatorRequest ? "Mengajukan..." : "Menyimpan..."}
-              </>
-            ) : isOperatorRequest ? (
-              "Ajukan Persetujuan"
-            ) : (
-              "Simpan"
-            )}
-          </Button>
+            {isOperatorRequest ? "Ajukan Persetujuan" : "Simpan"}
+          </LoadingButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

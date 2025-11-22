@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -89,6 +90,7 @@ function getCategoryColor(category) {
 
 export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [isExporting, setIsExporting] = useState(false);
   const { showAlert } = useAlertDialog();
 
   // Function to export data to Excel
@@ -102,16 +104,19 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
       return;
     }
 
+    setIsExporting(true);
     try {
-      const reportDateRange = dateRange ? {
-        from: dateRange.from.toISOString().split("T")[0],
-        to: dateRange.to.toISOString().split("T")[0]
-      } : {
-        from: new Date().toISOString().split("T")[0],
-        to: new Date().toISOString().split("T")[0]
-      };
+      const reportDateRange = dateRange
+        ? {
+            from: dateRange.from.toISOString().split("T")[0],
+            to: dateRange.to.toISOString().split("T")[0],
+          }
+        : {
+            from: new Date().toISOString().split("T")[0],
+            to: new Date().toISOString().split("T")[0],
+          };
 
-      exportExpenseReport(data, reportDateRange);
+      await exportExpenseReport(data, reportDateRange);
 
       // Show success message
       await showAlert({
@@ -126,6 +131,8 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
         type: "error",
         title: "Export Gagal",
       });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -162,13 +169,16 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" role="status" aria-busy="true">
         {/* Summary Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-24" />
+                <Skeleton
+                  className="h-4 w-24"
+                  aria-label={`Memuat statistik ${i + 1}`}
+                />
               </CardHeader>
               <CardContent>
                 <Skeleton className="h-8 w-20" />
@@ -180,13 +190,16 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
         {/* Table Skeleton */}
         <Card>
           <CardHeader>
-            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-6 w-48" aria-label="Memuat judul laporan" />
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex justify-between items-center">
-                  <Skeleton className="h-4 w-32" />
+                  <Skeleton
+                    className="h-4 w-32"
+                    aria-label={`Memuat kategori ${i + 1}`}
+                  />
                   <Skeleton className="h-4 w-24" />
                 </div>
               ))}
@@ -297,14 +310,16 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
                 {dateRange?.to?.toLocaleDateString("id-ID")}
               </CardDescription>
             </div>
-            <Button
+            <LoadingButton
               onClick={exportToExcel}
+              isLoading={isExporting}
+              loadingText="Mengekspor..."
               disabled={!data || !data.data || data.data.length === 0}
               className="flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
               Export Excel
-            </Button>
+            </LoadingButton>
           </div>
         </CardHeader>
         <CardContent>

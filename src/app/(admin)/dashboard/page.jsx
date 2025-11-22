@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
@@ -19,6 +19,7 @@ import { useRetry } from "@/hooks/useRetry";
 import { toast } from "sonner";
 
 function DashboardPage() {
+  const searchParams = useSearchParams();
   const [period, setPeriod] = useState("month");
   const [stats, setStats] = useState(null);
   const [driverPerformance, setDriverPerformance] = useState(null);
@@ -29,9 +30,34 @@ function DashboardPage() {
   const router = useRouter();
   const authFetch = useAuthFetch();
   const { user, loading: userLoading } = useUser();
-  const { retry: retryDashboard, isRetrying: isRetryingDashboard } = useRetry(3, 1000);
-  const { retry: retryDriver, isRetrying: isRetryingDriver } = useRetry(3, 1000);
+  const { retry: retryDashboard, isRetrying: isRetryingDashboard } = useRetry(
+    3,
+    1000
+  );
+  const { retry: retryDriver, isRetrying: isRetryingDriver } = useRetry(
+    3,
+    1000
+  );
 
+  // Display error message from query parameters
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      // Decode the error message
+      const decodedError = decodeURIComponent(errorParam);
+
+      // Display toast notification
+      toast.error("Akses Ditolak", {
+        description: decodedError,
+        duration: 5000,
+      });
+
+      // Remove error parameter from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("error");
+      window.history.replaceState({}, "", newUrl.toString());
+    }
+  }, [searchParams]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -59,9 +85,12 @@ function DashboardPage() {
           setError(null); // Clear any previous errors
         },
         (attempt, maxRetries, delay) => {
-          toast.info(`Mencoba lagi mengambil data dashboard (${attempt}/${maxRetries})...`, {
-            description: `Menunggu ${delay}ms`,
-          });
+          toast.info(
+            `Mencoba lagi mengambil data dashboard (${attempt}/${maxRetries})...`,
+            {
+              description: `Menunggu ${delay}ms`,
+            }
+          );
         }
       );
     } catch (err) {
@@ -69,7 +98,8 @@ function DashboardPage() {
       setError(err);
       setStats(null);
       toast.error("Gagal Memuat Dashboard", {
-        description: "Tidak dapat mengambil data dashboard setelah beberapa percobaan.",
+        description:
+          "Tidak dapat mengambil data dashboard setelah beberapa percobaan.",
       });
     } finally {
       setLoading(false);
@@ -84,7 +114,9 @@ function DashboardPage() {
     try {
       await retryDriver(
         async () => {
-          const res = await authFetch(`/api/dashboard/driver-performance?period=${period}`);
+          const res = await authFetch(
+            `/api/dashboard/driver-performance?period=${period}`
+          );
 
           if (!res) return; // authFetch returns null on 401/403 and redirects
 
@@ -102,9 +134,12 @@ function DashboardPage() {
           setDriverError(null);
         },
         (attempt, maxRetries, delay) => {
-          toast.info(`Mencoba lagi mengambil data performa sopir (${attempt}/${maxRetries})...`, {
-            description: `Menunggu ${delay}ms`,
-          });
+          toast.info(
+            `Mencoba lagi mengambil data performa sopir (${attempt}/${maxRetries})...`,
+            {
+              description: `Menunggu ${delay}ms`,
+            }
+          );
         }
       );
     } catch (err) {
@@ -112,7 +147,8 @@ function DashboardPage() {
       setDriverError(err);
       setDriverPerformance(null);
       toast.error("Gagal Memuat Performa Sopir", {
-        description: "Tidak dapat mengambil data performa sopir setelah beberapa percobaan.",
+        description:
+          "Tidak dapat mengambil data performa sopir setelah beberapa percobaan.",
       });
     } finally {
       setDriverLoading(false);

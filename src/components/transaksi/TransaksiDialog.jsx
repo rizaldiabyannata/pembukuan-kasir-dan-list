@@ -11,6 +11,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,7 @@ export default function TransaksiDialog({
   sopirList,
   isLoadingDependencies,
   userRole,
+  isSubmitting = false,
 }) {
   // Cari paket yang dipilih untuk cek tipenya
   const selectedPackage = paketList.find(
@@ -266,9 +268,10 @@ export default function TransaksiDialog({
                             </SelectTrigger>
                             <SelectContent>
                               {(() => {
-                                const selectedTier = selectedPackage?.hotelTiers?.find(
-                                  (tier) => tier.id === formData.hotel_tier_id
-                                );
+                                const selectedTier =
+                                  selectedPackage?.hotelTiers?.find(
+                                    (tier) => tier.id === formData.hotel_tier_id
+                                  );
                                 if (!selectedTier?.hotels?.length) {
                                   return (
                                     <SelectItem value="-" disabled>
@@ -339,14 +342,18 @@ export default function TransaksiDialog({
                                     {selectedTier.starRating} Bintang
                                   </div>
                                   <div className="border-t pt-2 mt-2">
-                                    <div className="font-medium mb-1">Tarif per Pax:</div>
+                                    <div className="font-medium mb-1">
+                                      Tarif per Pax:
+                                    </div>
                                     {selectedTier.priceRanges?.map(
                                       (range, idx) => (
                                         <div
                                           key={idx}
                                           className="text-xs text-muted-foreground flex justify-between"
                                         >
-                                          <span>{range.minPax}-{range.maxPax} orang</span>
+                                          <span>
+                                            {range.minPax}-{range.maxPax} orang
+                                          </span>
                                           <span className="font-medium">
                                             {formatCurrency(range.price)}/pax
                                           </span>
@@ -496,7 +503,7 @@ export default function TransaksiDialog({
                       className={`grid gap-1.5 ${showOvertimeField ? "" : "md:col-span-2"}`}
                     >
                       <Label htmlFor="dp_amount">
-                        Jumlah DP {" "}
+                        Jumlah DP{" "}
                         <span className="text-xs text-muted-foreground"></span>
                       </Label>
                       <CurrencyInput
@@ -554,17 +561,22 @@ export default function TransaksiDialog({
 
         <DialogFooter className="mt-4">
           <DialogClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={isSubmitting}>
               Batal
             </Button>
           </DialogClose>
-          <Button type="submit" form="transaksi-form">
+          <LoadingButton
+            type="submit"
+            form="transaksi-form"
+            isLoading={isSubmitting}
+            loadingText="Menyimpan..."
+          >
             {isEditing
               ? userRole === "OPERATOR"
                 ? "Ajukan Perubahan"
                 : "Simpan Perubahan"
               : "Simpan Transaksi"}
-          </Button>
+          </LoadingButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

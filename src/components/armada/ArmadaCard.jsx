@@ -8,7 +8,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Car, Calendar, Wrench, Trash, Pencil } from "lucide-react";
-import { Button } from "../ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -34,6 +34,8 @@ export default function ArmadaCard({
   onDelete,
   onMaintenance = () => {},
   isDisabled = false,
+  isDeleting = false,
+  isMaintenance = false,
 }) {
   const status = armada.status || "READY";
   const year =
@@ -109,16 +111,17 @@ export default function ArmadaCard({
         <CardFooter className="pt-0 pb-5 flex gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
+              <LoadingButton
                 variant="outline"
                 size="sm"
                 className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => onEdit(armada)}
-                disabled={isDisabled}
+                disabled={isDisabled || isDeleting || isMaintenance}
+                isLoading={false}
               >
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
-              </Button>
+              </LoadingButton>
             </TooltipTrigger>
             {isDisabled && (
               <TooltipContent>
@@ -126,27 +129,32 @@ export default function ArmadaCard({
               </TooltipContent>
             )}
           </Tooltip>
-          <Button
+          <LoadingButton
             variant="outline"
             size="sm"
             className="flex-1 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
             onClick={() => onMaintenance(armada)}
+            disabled={isDeleting}
+            isLoading={isMaintenance}
+            loadingText="Memproses..."
           >
             <Wrench className="h-4 w-4 mr-2" />
             Maintenance
-          </Button>
+          </LoadingButton>
           <Tooltip>
             <TooltipTrigger asChild>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
+                  <LoadingButton
                     variant="outline"
                     size="sm"
                     className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isDisabled}
+                    disabled={isDisabled || isMaintenance}
+                    isLoading={isDeleting}
+                    loadingText=""
                   >
                     <Trash className="h-4 w-4" />
-                  </Button>
+                  </LoadingButton>
                 </AlertDialogTrigger>
 
                 <AlertDialogContent className="max-w-sm">

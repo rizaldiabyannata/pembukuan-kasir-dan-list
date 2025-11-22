@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { exportTransactionReport } from "@/lib/excel-export";
@@ -76,7 +76,14 @@ export default function LaporanTransaksiTab({ data, isLoading, dateRange }) {
   };
 
   if (isLoading) {
-    return <Skeleton className="h-64 w-full" />;
+    return (
+      <Skeleton
+        className="h-64 w-full"
+        role="status"
+        aria-busy="true"
+        aria-label="Memuat laporan transaksi"
+      />
+    );
   }
 
   if (!data) {
@@ -90,15 +97,17 @@ export default function LaporanTransaksiTab({ data, isLoading, dateRange }) {
   return (
     <div className="rounded-md border">
       <div className="p-4">
-        <Button
+        <LoadingButton
           onClick={handleDownload}
           size="sm"
           className="mb-4"
-          disabled={isExporting || !data}
+          isLoading={isExporting}
+          loadingText="Mengunduh..."
+          disabled={!data}
         >
           <Download className="mr-2 h-4 w-4" />
-          {isExporting ? "Mengunduh..." : "Download Laporan (Excel)"}
-        </Button>
+          Download Laporan (Excel)
+        </LoadingButton>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 pt-0">

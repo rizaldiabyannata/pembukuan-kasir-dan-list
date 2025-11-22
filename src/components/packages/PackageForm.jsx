@@ -15,6 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +48,7 @@ export function PackageForm({
   defaultValues,
 }) {
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const {
     register,
     handleSubmit,
@@ -499,54 +502,63 @@ export function PackageForm({
         clearErrors("tarifHotel");
       }
     }
-    const packageData = {
-      namaPaket: data.namaPaket,
-      tipePaket: data.tipePaket,
-      deskripsi: data.deskripsi,
-      isCustomizable: data.isCustomizable,
-      customizableItems: data.isCustomizable
-        ? data.customizableItems
-        : undefined,
-      include: data.include,
-      exclude: data.exclude,
-    };
 
-    // Only include duration for non-custom pricing packages
-    if (data.tipePaket !== "Harga Custom") {
-      packageData.durasi = {
-        hari: data.durasiHari,
-        malam: data.durasiMalam,
+    setIsSaving(true);
+    try {
+      const packageData = {
+        namaPaket: data.namaPaket,
+        tipePaket: data.tipePaket,
+        deskripsi: data.deskripsi,
+        isCustomizable: data.isCustomizable,
+        customizableItems: data.isCustomizable
+          ? data.customizableItems
+          : undefined,
+        include: data.include,
+        exclude: data.exclude,
       };
-    }
 
-    if (data.tipePaket === "Sewa Mobil" || data.tipePaket === "Full Day Trip") {
-      packageData.hargaDefault = data.hargaDefault;
-      packageData.tarifOvertime = data.tarifOvertime;
-      if (data.tipePaket === "Full Day Trip") {
+      // Only include duration for non-custom pricing packages
+      if (data.tipePaket !== "Harga Custom") {
+        packageData.durasi = {
+          hari: data.durasiHari,
+          malam: data.durasiMalam,
+        };
+      }
+
+      if (
+        data.tipePaket === "Sewa Mobil" ||
+        data.tipePaket === "Full Day Trip"
+      ) {
+        packageData.hargaDefault = data.hargaDefault;
+        packageData.tarifOvertime = data.tarifOvertime;
+        if (data.tipePaket === "Full Day Trip") {
+          packageData.itinerary = data.itinerary;
+        }
+      } else if (data.tipePaket === "Paket Tour") {
+        packageData.tarifHotel = data.tarifHotel;
         packageData.itinerary = data.itinerary;
       }
-    } else if (data.tipePaket === "Paket Tour") {
-      packageData.tarifHotel = data.tarifHotel;
-      packageData.itinerary = data.itinerary;
-    }
-    // CUSTOM_PRICING doesn't need special fields - it's just a template
+      // CUSTOM_PRICING doesn't need special fields - it's just a template
 
-    // preserve id whether caller passed package_ or defaultValues
-    if (package_?.id) {
-      packageData.id = package_.id;
-    } else if (defaultValues?.id) {
-      packageData.id = defaultValues.id;
-    }
+      // preserve id whether caller passed package_ or defaultValues
+      if (package_?.id) {
+        packageData.id = package_.id;
+      } else if (defaultValues?.id) {
+        packageData.id = defaultValues.id;
+      }
 
-    if (typeof onSave === "function") {
-      await onSave(packageData);
-      return;
+      if (typeof onSave === "function") {
+        await onSave(packageData);
+        return;
+      }
+      if (typeof onSubmitProp === "function") {
+        await onSubmitProp(packageData);
+        return;
+      }
+      console.warn("PackageForm: no save handler provided");
+    } finally {
+      setIsSaving(false);
     }
-    if (typeof onSubmitProp === "function") {
-      await onSubmitProp(packageData);
-      return;
-    }
-    console.warn("PackageForm: no save handler provided");
   };
 
   return (
@@ -563,14 +575,8 @@ export function PackageForm({
           </DialogDescription>
         </DialogHeader>
         <Form onSubmit={handleSubmit(onSubmit)}>
-          {isLoadingData && (
-            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
-              <div className="flex items-center gap-2 text-gray-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div>
-                <span>Memuat data...</span>
-              </div>
-            </div>
-          )}
+          <LoadingOverlay isVisible={isLoadingData} message="Memuat data..." />
+          <LoadingOverlay isVisible={isSaving} message="Menyimpan..." />
           <div className="grid gap-4 py-4">
             <FormField>
               <FormItem>
@@ -1613,13 +1619,15 @@ export function PackageForm({
             >
               Batal
             </Button>
-            <Button
+            <LoadingButton
               type="submit"
               className="bg-teal-600 hover:bg-teal-700"
-              disabled={isSubmitting || !isDirty}
+              disabled={!isDirty}
+              isLoading={isSubmitting}
+              loadingText="Menyimpan..."
             >
               Simpan
-            </Button>
+            </LoadingButton>
           </div>
         </Form>
       </DialogContent>

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import {
   User,
   Pencil,
@@ -31,6 +32,7 @@ export default function SopirCard({
   onSetStatus,
   onDelete,
   isDisabled = false,
+  isDeleting = false,
 }) {
   const status = driver.status || "READY";
 
@@ -154,9 +156,14 @@ export default function SopirCard({
                 size="sm"
                 className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => onDelete(driver.id)}
-                disabled={isDisabled}
+                disabled={isDisabled || isDeleting}
+                aria-busy={isDeleting}
               >
-                <Trash className="h-4 w-4" />
+                {isDeleting ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <Trash className="h-4 w-4" />
+                )}
               </Button>
             </TooltipTrigger>
             {isDisabled && (

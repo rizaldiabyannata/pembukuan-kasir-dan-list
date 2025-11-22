@@ -416,13 +416,9 @@ export async function exportTransactionReport(data, dateRange) {
       ...data.transactions.map((tx) => [
         tx.id || "-",
         tx.invoice_code || "-",
-        tx.created_at
-          ? new Date(tx.created_at).toLocaleString("id-ID")
-          : "-",
+        tx.created_at ? new Date(tx.created_at).toLocaleString("id-ID") : "-",
         tx.submitted_by?.name || "-",
-        tx.updated_at
-          ? new Date(tx.updated_at).toLocaleString("id-ID")
-          : "-",
+        tx.updated_at ? new Date(tx.updated_at).toLocaleString("id-ID") : "-",
         tx.approval_status || "-",
         tx.approved_by?.name || tx.rejected_by?.name || "-",
         tx.approved_at || tx.rejected_at
@@ -452,7 +448,7 @@ export async function exportTransactionReport(data, dateRange) {
   // Cash Flow Analysis sheet
   if (data.transactions && data.transactions.length > 0) {
     const { calculateTransactionFinancials } = await import("./accounting.js");
-    
+
     // Calculate cash flow metrics
     let totalCashInflow = 0;
     let totalCashOutflow = 0;
@@ -460,82 +456,100 @@ export async function exportTransactionReport(data, dateRange) {
     let unpaidTransactions = 0;
     let downPaymentTransactions = 0;
 
-    const c
- => {
-        const financials = calculateTransactionFis(tx);
- PAYMENT";
-        
-   aid) {
-          totalCashInflow += financials.totalPtan;
-   
+    const cashFlowDetails = await Promise.all(
+      data.transactions.map(async (tx) => {
+        const financials = calculateTransactionFinancials(tx);
+        const isPaid =
+          tx.payment_status === "PAID" || tx.payment_status === "DOWN_PAYMENT";
+
+        if (isPaid) {
+          totalCashInflow += financials.totalPendapatan;
+          if (tx.payment_status === "PAID") paidTransactions++;
           else downPaymentTransactions++;
         } else {
-tions++;
+          unpaidTransactions++;
         }
-        
+
         totalCashOutflow += financials.totalBiayaOps;
 
-      [
-          tx.invoice_cod",
+        return [
+          tx.invoice_code || "-",
           new Date(tx.booking_date).toLocaleDateString("id-ID"),
-      
-     g",
-          formatCurrencyForEdapatan),
+          tx.payment_status || "-",
+          formatCurrencyForExcel(financials.totalPendapatan),
           formatCurrencyForExcel(financials.totalBiayaOps),
-      
-       ];
-)
+          formatCurrencyForExcel(
+            financials.totalPendapatan - financials.totalBiayaOps
+          ),
+        ];
+      })
     );
 
     const cashFlowData = [
-     Kas"],
+      ["Analisis Arus Kas"],
       [],
       ["RINGKASAN"],
-      ["Total Pemasukan (Caw)],
-     
-flow)],
+      [
+        "Total Pemasukan (Cash Inflow)",
+        formatCurrencyForExcel(totalCashInflow),
+      ],
+      [
+        "Total Pengeluaran (Cash Outflow)",
+        formatCurrencyForExcel(totalCashOutflow),
+      ],
+      [
+        "Net Cash Flow",
+        formatCurrencyForExcel(totalCashInflow - totalCashOutflow),
+      ],
       [],
       ["STATUS PEMBAYARAN"],
-      ["Transaksi],
-      ["Tran
-      ["Piutang s],
+      ["Transaksi Lunas", paidTransactions],
+      ["Transaksi Belum Dibayar (Piutang)", unpaidTransactions],
+      ["Piutang DP", downPaymentTransactions],
       [],
-      ["DETAIL AS KAS"],
-      ["Invoice", "ow"],
-    ails,
+      ["DETAIL ARUS KAS"],
+      [
+        "Invoice",
+        "Tanggal",
+        "Status Bayar",
+        "Pemasukan",
+        "Pengeluaran",
+        "Net Cash Flow",
+      ],
+      ...cashFlowDetails,
     ];
 
-    con= {
-      "0,0": "heade,
+    const cashFlowStyleMap = {
+      "0,0": "header",
       "2,0": "subHeader",
       "7,0": "subHeader",
-      "12,0": "subHeadr",
+      "12,0": "subHeader",
       "13,0": "subHeader",
       "13,1": "subHeader",
       "13,2": "subHeader",
       "13,3": "subHeader",
       "13,4": "subHeader",
-      "13,5": "
-      "
-    ,
-",
-      "5,1": totalCashInflo
+      "13,5": "subHeader",
+      "3,1": "currency",
+      "4,1": "currency",
+      "5,1": totalCashInflow - totalCashOutflow >= 0 ? "positive" : "negative",
     };
 
-    // Apply styling tol rows
-    cashFlowDetails.for
-      const rowIdx = in
-      cashFlowStyleMap[;
-      cashFlowStyleMap[";
-    6];
-;
+    // Apply styling to detail rows
+    cashFlowDetails.forEach((_, index) => {
+      const rowIdx = index + 14;
+      cashFlowStyleMap[`${rowIdx},3`] = "currency";
+      cashFlowStyleMap[`${rowIdx},4`] = "currency";
+      const netCashFlow = totalCashInflow - totalCashOutflow;
+      cashFlowStyleMap[`${rowIdx},5`] =
+        netCashFlow >= 0 ? "positive" : "negative";
     });
 
-    addSheet(wb, "Arus Kas", ca
+    addSheet(wb, "Arus Kas", cashFlowData, {
       styleMap: cashFlowStyleMap,
-      columnWidths: [15, 12, 15, 15, 18, 18, 1],
+      columnWidths: [15, 12, 15, 15, 18, 18],
     });
-  }8, {shFlowData"negative"ve" : ositi0 ? "pw >= CashFlo},6`] = net[`${rowIdxStyleMap  cashFlow    ex][Details[indcashFlow= etCashFlow   const ncyrenur`] = "cx},5`${rowIdcy""currenIdx},4`] = `${rowex + 14;ddex) => {(_, inEach(etai de","negativ sitive" :? "po >= 0 lCashOutfloww - tota"currency   "4,1":    ency"": "curr,1  "3der",ea": "subH13,6eader",subHer"wStyleMap st cashFlocashFlowDet  ...ash Fl, "Net C"eluaran, "Pengkan"Pemasuipe", "Bayar", "T, "Status Tanggal"RUransactionpaidT)", unm DibayarBelu(sactions],aymentTran", downPsi DPsaknsactions", paidTra LunaslCashOutflow - totatalCashInl(toorExceCurrencyFih", formatersKas Bus       ["Artflow)],totalCashOuyForExcel(Currenc)", formatutflowan (Cash O Pengeluartal ["TohInflototalCasExcel(rencyForformatCur)", sh Inflowlisis Arus  ["Ana     }  BiayaOps),ncials.totalatan - finaendaptalPancials.toel(finrExcurrencyFotC    formas.totalPencialcel(finanx" : "Piutanash InflowPaid ? "C    is s || "-",_statuntpayme    tx.| "-e |return   idTransac     unpa     sactions++;aidTranPAID") ps === "atu.payment_stf (tx       indapae(isP     if  === "DOWN_nt_statuspayme" || tx.== "PAIDnt_status =d = tx.paymeonst isPai      c nancial (tx)s.map(async.transactiondata      l(ise.alawait PromDetails = ashFlow
+  }
 
   return exportWorkbook(wb, "Laporan_Transaksi");
 }
@@ -775,10 +789,9 @@ export function exportExpenseReport(data, dateRange) {
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .forEach((expense) => {
       const attachmentCount = expense.attachments?.length || 0;
-      const attachmentInfo = attachmentCount > 0 
-        ? `${attachmentCount} file(s)` 
-        : "Tidak ada";
-      
+      const attachmentInfo =
+        attachmentCount > 0 ? `${attachmentCount} file(s)` : "Tidak ada";
+
       transactionData.push([
         new Date(expense.date).toLocaleDateString("id-ID"),
         expense.category,
@@ -1199,26 +1212,26 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
 const CHART_OF_ACCOUNTS = {
   // Revenue Accounts (4xxx)
   REVENUE: {
-    "4100": "Tour Package Revenue",
-    "4200": "Car Rental Revenue",
-    "4300": "Full Day Trip Revenue",
-    "4400": "Custom Service Revenue",
-    "4500": "Overtime Charges",
+    4100: "Tour Package Revenue",
+    4200: "Car Rental Revenue",
+    4300: "Full Day Trip Revenue",
+    4400: "Custom Service Revenue",
+    4500: "Overtime Charges",
   },
   // Cost of Sales (5xxx)
   COST_OF_SALES: {
-    "5100": "Fuel Costs",
-    "5200": "Driver Wages (Direct)",
-    "5300": "Vehicle Maintenance (Direct)",
+    5100: "Fuel Costs",
+    5200: "Driver Wages (Direct)",
+    5300: "Vehicle Maintenance (Direct)",
   },
   // Operating Expenses (6xxx)
   OPERATING_EXPENSES: {
-    "6100": "Administrative Salaries",
-    "6200": "Office Rent",
-    "6300": "Utilities",
-    "6400": "Marketing",
-    "6500": "Insurance",
-    "6600": "Depreciation",
+    6100: "Administrative Salaries",
+    6200: "Office Rent",
+    6300: "Utilities",
+    6400: "Marketing",
+    6500: "Insurance",
+    6600: "Depreciation",
   },
 };
 
@@ -1234,25 +1247,48 @@ export function exportIncomeStatement(data, dateRange) {
     [`Periode: ${dateRange.from} s/d ${dateRange.to}`],
     [],
     ["PENDAPATAN"],
-    ["4100 - Pendapatan Sewa Kendaraan", formatCurrencyForExcel(data.totalPemasukanSewa || 0)],
+    [
+      "4100 - Pendapatan Sewa Kendaraan",
+      formatCurrencyForExcel(data.totalPemasukanSewa || 0),
+    ],
     ["Total Pendapatan", formatCurrencyForExcel(data.totalPemasukanSewa || 0)],
     [],
     ["HARGA POKOK PENJUALAN"],
     ["5100 - Biaya BBM", formatCurrencyForExcel(data.biayaBBM || 0)],
-    ["5200 - Gaji Sopir (Langsung)", formatCurrencyForExcel(data.gajiSopir || 0)],
+    [
+      "5200 - Gaji Sopir (Langsung)",
+      formatCurrencyForExcel(data.gajiSopir || 0),
+    ],
     ["Total HPP", formatCurrencyForExcel(data.totalBiayaOps || 0)],
     [],
-    ["LABA KOTOR", formatCurrencyForExcel((data.totalPemasukanSewa || 0) - (data.totalBiayaOps || 0))],
+    [
+      "LABA KOTOR",
+      formatCurrencyForExcel(
+        (data.totalPemasukanSewa || 0) - (data.totalBiayaOps || 0)
+      ),
+    ],
     [],
     ["BIAYA OPERASIONAL"],
-    ["6100 - Gaji Staf Administrasi", formatCurrencyForExcel(data.gajiStaf || 0)],
+    [
+      "6100 - Gaji Staf Administrasi",
+      formatCurrencyForExcel(data.gajiStaf || 0),
+    ],
     ["6200 - Sewa Kantor", formatCurrencyForExcel(data.sewaKantor || 0)],
-    ["6300 - Utilitas (Listrik, Internet)", formatCurrencyForExcel(data.utilitas || 0)],
+    [
+      "6300 - Utilitas (Listrik, Internet)",
+      formatCurrencyForExcel(data.utilitas || 0),
+    ],
     ["6400 - Biaya Pemasaran", formatCurrencyForExcel(data.pemasaran || 0)],
     ["6500 - Asuransi", formatCurrencyForExcel(data.asuransi || 0)],
     ["6600 - Depresiasi", formatCurrencyForExcel(data.depresiasi || 0)],
-    ["6900 - Operasional Lainnya", formatCurrencyForExcel(data.operasionalLainnya || 0)],
-    ["Total Biaya Operasional", formatCurrencyForExcel(data.totalBiayaKantor || 0)],
+    [
+      "6900 - Operasional Lainnya",
+      formatCurrencyForExcel(data.operasionalLainnya || 0),
+    ],
+    [
+      "Total Biaya Operasional",
+      formatCurrencyForExcel(data.totalBiayaKantor || 0),
+    ],
     [],
     ["LABA (RUGI) BERSIH", formatCurrencyForExcel(data.labaRugiBersih || 0)],
     [],
@@ -1271,178 +1307,10 @@ export function exportIncomeStatement(data, dateRange) {
     "10,0": "total",
     "10,1": "total",
     "12,0": "total",
-    "12,1": data.totalPemasukanSewa - data.totalBiayaOps >= 0 ? "positive" : "negative",
-    "21,0": "total",
-    "21,1": "total",
-    "23,0": "total",
-    "23,1": data.labaRugiBersih >= 0 ? "positive" : "negative",
-  };
-
-  // Apply currency styling to amount column
-  for (let i = 4; i < 23; i++) {
-    if (i !== 6 && i !== 11 && i !== 13 && i !== 22) {
-      incomeStatementStyleMap[`${i},1`] = "currency";
-    }
-  }
-
-  addSheet(wb, "Laporan Laba Rugi", incomeStatementData, {
-    styleMap: incomeStatementStyleMap,
-    columnWidths: [40, 20],
-  });
-
-  // Tax Summary sheet
-  const taxableIncome = data.labaRugiBersih || 0;
-  const vatRate = 0.11; // 11% PPN
-  const estimatedVAT = (data.totalPemasukanSewa || 0) * vatRate;
-
-  const taxData = [
-    ["RINGKASAN PAJAK"],
-    [],
-    ["Pendapatan Kotor", formatCurrencyForExcel(data.totalPemasukanSewa || 0)],
-    ["Penghasilan Kena Pajak", formatCurrencyForExcel(taxableIncome)],
-    [],
-    ["PPN (11%)", formatCurrencyForExcel(estimatedVAT)],
-    ["PPN Masukan (Estimasi)", formatCurrencyForExcel(estimatedVAT * 0.5)],
-    ["PPN Keluaran (Estimasi)", formatCurrencyForExcel(estimatedVAT)],
-    ["Posisi PPN Neto", formatCurrencyForExcel(estimatedVAT * 0.5)],
-  ];
-
-  const taxStyleMap = {
-    "0,0": "header",
-    "2,1": "currency",
-    "3,1": "currency",
-    "5,1": "currency",
-    "6,1": "currency",
-    "7,1": "currency",
-    "8,1": "currency",
-  };
-
-  addSheet(wb, "Ringkasan Pajak", taxData, {
-    styleMap: taxStyleMap,
-    columnWidths: [30, 20],
-  });
-
-  // Chart of Accounts sheet
-  const coaData = [
-    ["BAGAN AKUN (CHART OF ACCOUNTS)"],
-    [],
-    ["Kode Akun", "Nama Akun", "Kategori"],
-    [],
-    ["PENDAPATAN (4xxx)"],
-    ...Object.entries(CHART_OF_ACCOUNTS.REVENUE).map(([code, name]) => [
-      code,
-      name,
-      "Pendapatan",
-    ]),
-    [],
-    ["HARGA POKOK PENJUALAN (5xxx)"],
-    ...Object.entries(CHART_OF_ACCOUNTS.COST_OF_SALES).map(([code, name]) => [
-      code,
-      name,
-      "HPP",
-    ]),
-    [],
-    ["BIAYA OPERASIONAL (6xxx)"],
-    ...Object.entries(CHART_OF_ACCOUNTS.OPERATING_EXPENSES).map(
-      ([code, name]) => [code, name, "Biaya Operasional"]
-    ),
-  ];
-
-  const coaStyleMap = {
-    "0,0": ,
-;
-}_Laba_Rugi`)ranapo(wb, `LrtWorkbookurn expo  ret});
-
-
-  , 35, 20],Widths: [15
-    columnStyleMap,Map: coayle  stta, {
-  ", coaDaun"Bagan AkSheet(wb, 
-  add
-};er",
-   "subHead":4,0
-    "ubHeader",": "s
-    "2,2der","subHea1": ",
-    "2,"subHeader "2,0":    er""head
-
-/**
- * Chart of Accounts mapping for tour and travel business
- */
-const CHART_OF_ACCOUNTS = {
-  // Revenue Accounts (4xxx)
-  REVENUE: {
-    "4100": "Tour Package Revenue",
-    "4200": "Car Rental Revenue",
-    "4300": "Full Day Trip Revenue",
-    "4400": "Custom Service Revenue",
-    "4500": "Overtime Charges",
-  },
-  // Cost of Sales (5xxx)
-  COST_OF_SALES: {
-    "5100": "Fuel Costs",
-    "5200": "Driver Wages (Direct)",
-    "5300": "Vehicle Maintenance (Direct)",
-  },
-  // Operating Expenses (6xxx)
-  OPERATING_EXPENSES: {
-    "6100": "Administrative Salaries",
-    "6200": "Office Rent",
-    "6300": "Utilities",
-    "6400": "Marketing",
-    "6500": "Insurance",
-    "6600": "Depreciation",
-  },
-};
-
-/**
- * Export income statement (Laporan Laba Rugi) with standard accounting format
- */
-export function exportIncomeStatement(data, dateRange) {
-  const wb = createWorkbook();
-
-  // Income Statement sheet with standard format
-  const incomeStatementData = [
-    ["LAPORAN LABA RUGI"],
-    [`Periode: ${dateRange.from} s/d ${dateRange.to}`],
-    [],
-    ["PENDAPATAN"],
-    ["4100 - Pendapatan Sewa Kendaraan", formatCurrencyForExcel(data.totalPemasukanSewa || 0)],
-    ["Total Pendapatan", formatCurrencyForExcel(data.totalPemasukanSewa || 0)],
-    [],
-    ["HARGA POKOK PENJUALAN"],
-    ["5100 - Biaya BBM", formatCurrencyForExcel(data.biayaBBM || 0)],
-    ["5200 - Gaji Sopir (Langsung)", formatCurrencyForExcel(data.gajiSopir || 0)],
-    ["Total HPP", formatCurrencyForExcel(data.totalBiayaOps || 0)],
-    [],
-    ["LABA KOTOR", formatCurrencyForExcel((data.totalPemasukanSewa || 0) - (data.totalBiayaOps || 0))],
-    [],
-    ["BIAYA OPERASIONAL"],
-    ["6100 - Gaji Staf Administrasi", formatCurrencyForExcel(data.gajiStaf || 0)],
-    ["6200 - Sewa Kantor", formatCurrencyForExcel(data.sewaKantor || 0)],
-    ["6300 - Utilitas (Listrik, Internet)", formatCurrencyForExcel(data.utilitas || 0)],
-    ["6400 - Biaya Pemasaran", formatCurrencyForExcel(data.pemasaran || 0)],
-    ["6500 - Asuransi", formatCurrencyForExcel(data.asuransi || 0)],
-    ["6600 - Depresiasi", formatCurrencyForExcel(data.depresiasi || 0)],
-    ["6900 - Operasional Lainnya", formatCurrencyForExcel(data.operasionalLainnya || 0)],
-    ["Total Biaya Operasional", formatCurrencyForExcel(data.totalBiayaKantor || 0)],
-    [],
-    ["LABA (RUGI) BERSIH", formatCurrencyForExcel(data.labaRugiBersih || 0)],
-    [],
-    ["ANALISIS"],
-    ["Margin Laba Kotor", data.grossProfitMargin || "0%"],
-    ["Margin Laba Bersih", data.profitMargin || "0%"],
-  ];
-
-  const incomeStatementStyleMap = {
-    "0,0": "header",
-    "3,0": "subHeader",
-    "7,0": "subHeader",
-    "14,0": "subHeader",
-    "5,0": "total",
-    "5,1": "total",
-    "10,0": "total",
-    "10,1": "total",
-    "12,0": "total",
-    "12,1": data.totalPemasukanSewa - data.totalBiayaOps >= 0 ? "positive" : "negative",
+    "12,1":
+      data.totalPemasukanSewa - data.totalBiayaOps >= 0
+        ? "positive"
+        : "negative",
     "21,0": "total",
     "21,1": "total",
     "23,0": "total",

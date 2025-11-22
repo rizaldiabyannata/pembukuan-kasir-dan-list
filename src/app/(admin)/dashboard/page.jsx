@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { FleetStatusChart } from "@/components/dashboard/FleetStatusChart";
 import { FleetRevenueChart } from "@/components/dashboard/FleetRevenueChart";
 import { TopPackagesWidget } from "@/components/dashboard/TopPackagesWidget";
 import { DriverPerformanceChart } from "@/components/dashboard/DriverPerformanceChart";
+import { IncentiveRecipientsWidget } from "@/components/dashboard/IncentiveRecipientsWidget";
 import { AdminOnly } from "@/components/PermissionGuard";
 import { Calendar, Clock, TrendingUp } from "lucide-react";
 import { useAuthFetch } from "@/lib/useAuthFetch";
@@ -293,6 +294,11 @@ function DashboardPage() {
                 }}
                 loading={loading}
               />
+            </AdminOnly>
+
+            {/* Incentive Recipients Widget - Admin Only */}
+            <AdminOnly>
+              <IncentiveRecipientsWidget period={period} loading={loading} />
             </AdminOnly>
 
             {/* Driver Performance Chart - Admin Only */}

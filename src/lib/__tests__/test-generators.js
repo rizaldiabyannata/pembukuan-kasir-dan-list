@@ -333,6 +333,35 @@ export const approvedFuelExpenseArbitrary = () => {
 };
 
 /**
+ * Generate an incentive/bonus expense (INSENTIF_BONUS category)
+ */
+export const incentiveExpenseArbitrary = () => {
+  return fc.record({
+    id: fc.uuid(),
+    date: dateArbitrary(),
+    category: fc.constant("INSENTIF_BONUS"),
+    amount: fc.integer({ min: 50000, max: 5000000 }),
+    description: fc.string({ minLength: 5, maxLength: 200 }),
+    namaPenerima: fc.string({ minLength: 3, maxLength: 50 }),
+    approval_status: approvalStatusArbitrary(),
+    paymentMonth: fc.option(dateArbitrary(), { nil: null }),
+    armadaId: fc.option(fc.uuid(), { nil: null }),
+    driverId: fc.option(fc.uuid(), { nil: null }),
+    staffId: fc.option(fc.uuid(), { nil: null }),
+  });
+};
+
+/**
+ * Generate an approved incentive expense
+ */
+export const approvedIncentiveExpenseArbitrary = () => {
+  return incentiveExpenseArbitrary().map((e) => ({
+    ...e,
+    approval_status: "APPROVED",
+  }));
+};
+
+/**
  * Generate a driver object
  */
 export const driverArbitrary = () => {

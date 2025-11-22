@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useUser } from "@/hooks/useUser";
 
 /**
@@ -35,8 +36,8 @@ export default function PermissionGuard({
     // Import permissions dynamically to avoid circular dependencies
     import("@/lib/middleware").then(({ permissions: permissionFuncs }) => {
       const hasPermission = requireAllPermissions
-        ? permissions.every(perm => permissionFuncs[perm]?.(user))
-        : permissions.some(perm => permissionFuncs[perm]?.(user));
+        ? permissions.every((perm) => permissionFuncs[perm]?.(user))
+        : permissions.some((perm) => permissionFuncs[perm]?.(user));
 
       if (!hasPermission) {
         return fallback;
@@ -77,7 +78,7 @@ export function HasPermission({
   children,
   permissions = [],
   requireAll = false,
-  fallback = null
+  fallback = null,
 }) {
   return (
     <PermissionGuard

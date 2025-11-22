@@ -1,4 +1,6 @@
+import * as React from "react";
 import { Spinner } from "./spinner";
+import { cn } from "@/lib/utils";
 
 function LoadingOverlay({
   isVisible,
@@ -7,11 +9,36 @@ function LoadingOverlay({
   spinnerSize = "md",
   ...props
 }) {
-  if (!isVisible) return null;
+  const [shouldRender, setShouldRender] = React.useState(isVisible);
+  const [isAnimating, setIsAnimating] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isVisible) {
+      setShouldRender(true);
+      // Small delay to trigger animation
+      requestAnimationFrame(() => {
+        setIsAnimating(true);
+      });
+    } else {
+      setIsAnimating(false);
+      // Wait for fade-out animation to complete (150ms)
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible]);
+
+  if (!shouldRender) return null;
 
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-lg border ${className}`}
+      className={cn(
+        "absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-lg border",
+        "transition-opacity duration-150",
+        isAnimating ? "opacity-100" : "opacity-0",
+        className
+      )}
       role="status"
       aria-live="polite"
       aria-busy="true"

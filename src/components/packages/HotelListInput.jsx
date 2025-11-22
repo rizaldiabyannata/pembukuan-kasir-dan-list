@@ -42,6 +42,7 @@ export function HotelListInput({
             addHotel();
           }
         }}
+        onBlur={addHotel}
       />
       <button
         type="button"

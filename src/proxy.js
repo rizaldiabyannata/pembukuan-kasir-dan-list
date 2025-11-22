@@ -11,12 +11,7 @@ import { getSession } from "./lib/auth";
 const PUBLIC_PATHS = ["/", "/login", "/api/auth/login"];
 
 // Admin page routes that require ADMIN role
-const ADMIN_PAGE_ROUTES = [
-  "/dashboard",
-  "/laporan",
-  "/audit",
-  "/users",
-];
+const ADMIN_PAGE_ROUTES = ["/dashboard", "/laporan", "/audit", "/users"];
 
 // Operator-accessible page routes
 const OPERATOR_PAGE_ROUTES = [
@@ -101,7 +96,11 @@ export default async function proxy(request) {
   const token = getTokenFromRequest(request);
 
   if (!token) {
-    console.log(`🚫 No session token found for ${pathname}, redirecting to /`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `🚫 No session token found for ${pathname}, redirecting to /`
+      );
+    }
     // Redirect to homepage (login page)
     return NextResponse.redirect(new URL("/", request.url));
   }
@@ -111,7 +110,11 @@ export default async function proxy(request) {
     const session = await getSession(token);
 
     if (!session || !session.user || session.user.role !== "ADMIN") {
-      console.log(`🚫 Admin access denied for ${pathname}, redirecting to /transaksi`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          `🚫 Admin access denied for ${pathname}, redirecting to /transaksi`
+        );
+      }
       // Redirect to transactions page for non-admin users
       return NextResponse.redirect(new URL("/transaksi", request.url));
     }

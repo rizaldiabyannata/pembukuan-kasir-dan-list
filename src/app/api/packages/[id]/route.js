@@ -126,15 +126,15 @@ async function handleUpdatePackage(request, { params }) {
       // Convert from thousands to full rupiah (CurrencyInput sends in thousands)
       updateData.price =
         typeof hargaDefault === "number"
-          ? hargaDefault * 1000
+          ? hargaDefault
           : hargaDefault
-            ? Number(hargaDefault) * 1000
+            ? Number(hargaDefault)
             : null;
       updateData.overtimeRate =
         typeof tarifOvertime === "number"
-          ? tarifOvertime * 1000
+          ? tarifOvertime
           : tarifOvertime
-            ? Number(tarifOvertime) * 1000
+            ? Number(tarifOvertime)
             : null;
       updateData.durationHours = durasiHari ? Number(durasiHari) : null;
       updateData.durationDays = null;
@@ -158,15 +158,15 @@ async function handleUpdatePackage(request, { params }) {
       // Convert from thousands to full rupiah (CurrencyInput sends in thousands)
       updateData.price =
         typeof hargaDefault === "number"
-          ? hargaDefault * 1000
+          ? hargaDefault
           : hargaDefault
-            ? Number(hargaDefault) * 1000
+            ? Number(hargaDefault)
             : null;
       updateData.overtimeRate =
         typeof tarifOvertime === "number"
-          ? tarifOvertime * 1000
+          ? tarifOvertime
           : tarifOvertime
-            ? Number(tarifOvertime) * 1000
+            ? Number(tarifOvertime)
             : null;
       updateData.durationHours = durasiHari ? Number(durasiHari) : null;
       updateData.durationDays = null;

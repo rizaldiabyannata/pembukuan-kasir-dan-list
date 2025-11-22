@@ -21,7 +21,9 @@ export function withAdminAuth(Component) {
           });
 
           if (res.status === 401 || res.status === 403) {
-            console.log("⛔ Not authenticated, redirecting to login...");
+            if (process.env.NODE_ENV !== "production") {
+              console.log("⛔ Not authenticated, redirecting to login...");
+            }
             router.push("/");
             return;
           }
@@ -32,7 +34,9 @@ export function withAdminAuth(Component) {
             router.push("/");
           }
         } catch (error) {
-          console.error("❌ Auth check error:", error);
+          if (process.env.NODE_ENV !== "production") {
+            console.error("❌ Auth check error:", error);
+          }
           router.push("/");
         } finally {
           setIsChecking(false);

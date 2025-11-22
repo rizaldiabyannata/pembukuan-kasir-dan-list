@@ -382,11 +382,8 @@ export async function generatePasswordResetToken(email) {
     throw new Error("User not found");
   }
 
-  // Generate random token
-  const resetToken = await generateToken({
-    userId: user.id,
-    purpose: "password-reset",
-  });
+  // Generate random hex token (simpler and safer for URLs than JWT)
+  const resetToken = require("crypto").randomBytes(32).toString("hex");
 
   // Set expiry (1 hour)
   const resetTokenExpiry = new Date();

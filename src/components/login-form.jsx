@@ -197,18 +197,22 @@ export function LoginForm({ className, ...props }) {
       }
 
       // Debug: Check if cookie is set
-      console.log("✅ Login successful!");
-      console.log("📦 Response headers:", {
-        setCookie: res.headers.get("set-cookie"),
-        contentType: res.headers.get("content-type"),
-      });
-      console.log("🍪 All cookies:", document.cookie);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("✅ Login successful!");
+        console.log("📦 Response headers:", {
+          setCookie: res.headers.get("set-cookie"),
+          contentType: res.headers.get("content-type"),
+        });
+        console.log("🍪 All cookies:", document.cookie);
+      }
 
       // Success - redirect to dashboard
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      console.error("Login error:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Login error:", err);
+      }
       setError(getErrorDetails(err));
     } finally {
       setIsLoading(false);

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -85,6 +86,7 @@ export default function UserDialog({ open, onOpenChange, user, onSuccess }) {
         throw new Error(result.message || "Gagal menyimpan user");
       }
 
+      // Success: close dialog, refresh data, and show success message
       toast.success(
         isEdit ? "User berhasil diupdate!" : "User berhasil ditambahkan!",
         {
@@ -96,9 +98,11 @@ export default function UserDialog({ open, onOpenChange, user, onSuccess }) {
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving user:", error);
+      // Error: keep dialog open and show error message
       toast.error("Gagal menyimpan user", {
         description: error.message,
       });
+      // Dialog stays open so user can fix errors or retry
     } finally {
       setLoading(false);
     }
@@ -221,9 +225,13 @@ export default function UserDialog({ open, onOpenChange, user, onSuccess }) {
             >
               Batal
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Menyimpan..." : isEdit ? "Update" : "Simpan"}
-            </Button>
+            <LoadingButton
+              type="submit"
+              isLoading={loading}
+              loadingText="Menyimpan..."
+            >
+              {isEdit ? "Update" : "Simpan"}
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>

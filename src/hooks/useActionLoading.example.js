@@ -202,3 +202,152 @@ function CustomComponent() {
 
   return <div>{/* Your component */}</div>;
 }
+
+// Example 5: Using timeout and retry features
+function DataSyncComponent({ onSync }) {
+  const { executeAction, isActionLoading } = useActionLoading();
+
+  const handleSync = async () => {
+    await executeAction(
+      "sync-data",
+      async (signal) => {
+        // Pass abort signal to fetch
+        const response = await fetch("/api/sync", {
+          method: "POST",
+          signal, // Enables cancellation
+        });
+        if (!response.ok) throw new Error("Gagal sinkronisasi data");
+        return response.json();
+      },
+      {
+        successMessage: "Data berhasil disinkronkan",
+        errorMessage: "Gagal sinkronisasi data",
+        timeout: 60000, // 60 seconds for long operation
+        enableRetry: true, // Enable automatic retry
+        maxRetries: 3, // Retry up to 3 times
+        loadingAnnouncement: "Menyinkronkan data",
+      }
+    );
+  };
+
+  return (
+    <LoadingButton
+      isLoading={isActionLoading("sync-data")}
+      onClick={handleSync}
+      loadingText="Menyinkronkan..."
+    >
+      Sinkronkan Data
+    </LoadingButton>
+  );
+}
+
+// Example 6: Cancelling operations
+function FileUploadComponent() {
+  const { executeAction, isActionLoading, cancelAction } = useActionLoading();
+
+  const handleUpload = async (file) => {
+    await executeAction(
+      "upload-file",
+      async (signal) => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+          signal, // Enables cancellation
+        });
+
+        if (!response.ok) throw new Error("Gagal mengunggah file");
+        return response.json();
+      },
+      {
+        successMessage: "File berhasil diunggah",
+        timeout: 120000, // 2 minutes for file upload
+      }
+    );
+  };
+
+  const handleCancel = () => {
+    cancelAction("upload-file");
+  };
+
+  return (
+    <div>
+      <input type="file" onChange={(e) => handleUpload(e.target.files[0])} />
+      {isActionLoading("upload-file") && (
+        <button onClick={handleCancel}>Batalkan</button>
+      )}
+    </div>
+  );
+}
+
+// Example 7: Network error handling with retry
+function ApiDataFetcher({ onDataLoaded }) {
+  const { executeAction, isActionLoading } = useActionLoading();
+
+  const fetchData = async () => {
+    await executeAction(
+      "fetch-api-data",
+      async (signal) => {
+        const response = await fetch("/api/data", { signal });
+        if (!response.ok) throw new Error("Gagal mengambil data");
+        return response.json();
+      },
+      {
+        successMessage: "Data berhasil dimuat",
+        enableRetry: true, // Will retry on network errors
+        maxRetries: 3,
+        onSuccess: (data) => {
+          onDataLoaded(data);
+        },
+        onError: (error) => {
+          console.error("Failed to fetch data:", error);
+        },
+      }
+    );
+  };
+
+  return (
+    <LoadingButton
+      isLoading={isActionLoading("fetch-api-data")}
+      onClick={fetchData}
+      loadingText="Memuat..."
+    >
+      Muat Data
+    </LoadingButton>
+  );
+}
+
+// Example 8: Preventing concurrent actions
+function BulkActionComponent({ items }) {
+  const { executeAction, isActionLoading } = useActionLoading();
+
+  const handleBulkDelete = async () => {
+    // This will be prevented if already running
+    await executeAction(
+      "bulk-delete",
+      async () => {
+        const promises = items.map((item) =>
+          fetch(`/api/items/${item.id}`, { method: "DELETE" })
+        );
+        await Promise.all(promises);
+      },
+      {
+        successMessage: `${items.length} item berhasil dihapus`,
+        timeout: 60000, // Longer timeout for bulk operation
+      }
+    );
+  };
+
+  return (
+    <LoadingButton
+      isLoading={isActionLoading("bulk-delete")}
+      onClick={handleBulkDelete}
+      loadingText="Menghapus..."
+      variant="destructive"
+    >
+      Hapus Semua ({items.length})
+    </LoadingButton>
+  );
+}

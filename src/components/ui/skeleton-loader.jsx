@@ -1,11 +1,31 @@
+import * as React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 function SkeletonLoader({
   variant = "default",
   className,
+  ariaLabel,
   ...props
 }) {
+  // Generate appropriate aria-label based on variant
+  const getAriaLabel = () => {
+    if (ariaLabel) return ariaLabel;
+
+    switch (variant) {
+      case "card":
+        return "Memuat data kartu...";
+      case "table-row":
+        return "Memuat baris tabel...";
+      case "form":
+        return "Memuat formulir...";
+      case "chart":
+        return "Memuat grafik...";
+      default:
+        return "Memuat konten...";
+    }
+  };
+
   const renderSkeleton = () => {
     switch (variant) {
       case "card":
@@ -64,7 +84,12 @@ function SkeletonLoader({
   };
 
   return (
-    <div className={cn("", className)}>
+    <div
+      className={cn("animate-in fade-in duration-200", className)}
+      role="status"
+      aria-busy="true"
+      aria-label={getAriaLabel()}
+    >
       {renderSkeleton()}
     </div>
   );

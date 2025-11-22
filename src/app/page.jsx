@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Car } from "lucide-react";
 
 import { LoginForm } from "@/components/login-form";
@@ -17,7 +18,9 @@ export default function LoginPage() {
           </div>
           Pembukuan Kasir & List
         </a>
-        <LoginForm />
+        <Suspense fallback={<div>Loading...</div>}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   );

@@ -159,15 +159,15 @@ async function handleCreatePackage(request) {
       // Convert from thousands to full rupiah (CurrencyInput sends in thousands)
       prismaData.price =
         typeof hargaDefault === "number"
-          ? hargaDefault * 1000
+          ? hargaDefault
           : hargaDefault
-            ? Number(hargaDefault) * 1000
+            ? Number(hargaDefault)
             : null;
       prismaData.overtimeRate =
         typeof tarifOvertime === "number"
-          ? tarifOvertime * 1000
+          ? tarifOvertime
           : tarifOvertime
-            ? Number(tarifOvertime) * 1000
+            ? Number(tarifOvertime)
             : null;
       // For CAR_RENTAL and FULL_DAY_TRIP, durasiHari represents hours
       const hours = nestedDurasiHari ?? durasiHari;

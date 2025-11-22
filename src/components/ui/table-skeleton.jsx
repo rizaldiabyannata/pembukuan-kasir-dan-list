@@ -19,7 +19,7 @@ function TableSkeleton({
 }) {
   return (
     <div
-      className={cn("w-full", className)}
+      className={cn("w-full animate-in fade-in duration-200", className)}
       role="status"
       aria-label="Memuat data tabel..."
       aria-busy="true"
@@ -44,11 +44,14 @@ function TableSkeleton({
         </div>
       )}
 
-      {/* Body skeleton rows */}
+      {/* Body skeleton rows with staggered animation */}
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div
           key={`row-${rowIndex}`}
-          className="flex items-center space-x-4 p-4 border-b"
+          className="flex items-center space-x-4 p-4 border-b animate-in fade-in duration-200"
+          style={{
+            animationDelay: `${rowIndex * 50}ms`,
+          }}
         >
           {Array.from({ length: columns }).map((_, colIndex) => (
             <Skeleton

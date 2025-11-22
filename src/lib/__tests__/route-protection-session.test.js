@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { validateSession, extractSessionToken } from "../route-protection.js";
 
 // Mock auth.js module
 jest.mock("../auth.js", () => ({
@@ -19,7 +18,24 @@ jest.mock("../prisma.js", () => ({
   },
 }));
 
-// Import mocked modules
+// Mock middleware.js to avoid Next.js imports
+jest.mock("../middleware.js", () => ({
+  permissions: {
+    canViewDashboard: jest.fn(),
+    canViewTransactions: jest.fn(),
+    canViewExpenses: jest.fn(),
+    canViewFleet: jest.fn(),
+    canViewDrivers: jest.fn(),
+    canViewPackages: jest.fn(),
+    canViewStaff: jest.fn(),
+    canViewReports: jest.fn(),
+    canViewUsers: jest.fn(),
+    canViewAuditLogs: jest.fn(),
+  },
+}));
+
+// Import after mocks are set up
+import { validateSession, extractSessionToken } from "../route-protection.js";
 import { verifyToken } from "../auth.js";
 import { prisma } from "../prisma.js";
 
@@ -47,47 +63,17 @@ describe("Session Validation", () => {
       expect(result.shouldClearCookie).toBe(true);
     });
 
-    it("should return error for expired session", async () => {
+    it("should return error for inactive user in JWT payload", async () => {
       const token = "valid-jwt-token";
-      const expiredDate = new Date();
-      expiredDate.setDate(expiredDate.getDate() - 1); // Yesterday
 
-      verifyToken.mockResolvedValue({ userId: "user-123" });
-      prisma.session.findUnique.mockResolvedValue({
-        token,
-        expiresAt: expiredDate,
-        user: {
-          id: "user-123",
-          email: "test@example.com",
-          name: "Test User",
-          role: "ADMIN",
-          isActive: true,
-        },
-      });
-
-      const result = await validateSession(token);
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe("SESSION_EXPIRED");
-      expect(result.shouldClearCookie).toBe(true);
-    });
-
-    it("should return error for inactive user", async () => {
-      const token = "valid-jwt-token";
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 7);
-
-      verifyToken.mockResolvedValue({ userId: "user-123" });
-      prisma.session.findUnique.mockResolvedValue({
-        token,
-        expiresAt: futureDate,
-        user: {
-          id: "user-123",
-          email: "test@example.com",
-          name: "Test User",
-          role: "ADMIN",
-          isActive: false, // Inactive user
-        },
+      // Mock JWT payload with inactive user
+      verifyToken.mockResolvedValue({
+        userId: "user-123",
+        email: "test@example.com",
+        username: "testuser",
+        name: "Test User",
+        role: "ADMIN",
+        isActive: false, // Inactive user in JWT
       });
 
       const result = await validateSession(token);
@@ -97,103 +83,206 @@ describe("Session Validation", () => {
       expect(result.shouldClearCookie).toBe(true);
     });
 
-    it("should return error for non-existent session", async () => {
+    it("should return valid session for valid JWT token with active user", async () => {
       const token = "valid-jwt-token";
 
-      verifyToken.mockResolvedValue({ userId: "user-123" });
-      prisma.session.findUnique.mockResolvedValue(null);
-
-      const result = await validateSession(token);
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe("SESSION_NOT_FOUND");
-    });
-
-    it("should return valid session for valid token", async () => {
-      const token = "valid-jwt-token";
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 7);
-
-      const mockSession = {
-        token,
-        expiresAt: futureDate,
-        user: {
-          id: "user-123",
-          email: "test@example.com",
-          name: "Test User",
-          role: "ADMIN",
-          isActive: true,
-        },
+      // Mock JWT payload with active user
+      const mockPayload = {
+        userId: "user-123",
+        email: "test@example.com",
+        username: "testuser",
+        name: "Test User",
+        role: "ADMIN",
+        isActive: true,
       };
 
-      verifyToken.mockResolvedValue({ userId: "user-123" });
-      prisma.session.findUnique.mockResolvedValue(mockSession);
+      verifyToken.mockResolvedValue(mockPayload);
 
       const result = await validateSession(token);
 
       expect(result.valid).toBe(true);
       expect(result.error).toBe(null);
-      expect(result.user).toEqual(mockSession.user);
-      expect(result.session).toEqual(mockSession);
+      expect(result.user).toEqual({
+        id: mockPayload.userId,
+        email: mockPayload.email,
+        username: mockPayload.username,
+        name: mockPayload.name,
+        role: mockPayload.role,
+        isActive: mockPayload.isActive,
+      });
+      expect(result.session).toEqual({ token });
+    });
+
+    it("should return valid session for OPERATOR role", async () => {
+      const token = "valid-jwt-token";
+
+      // Mock JWT payload with operator user
+      const mockPayload = {
+        userId: "user-456",
+        email: "operator@example.com",
+        username: "operator",
+        name: "Operator User",
+        role: "OPERATOR",
+        isActive: true,
+      };
+
+      verifyToken.mockResolvedValue(mockPayload);
+
+      const result = await validateSession(token);
+
+      expect(result.valid).toBe(true);
+      expect(result.error).toBe(null);
+      expect(result.user.role).toBe("OPERATOR");
+    });
+
+    it("should handle JWT verification errors gracefully", async () => {
+      const token = "malformed-token";
+
+      verifyToken.mockRejectedValue(new Error("JWT malformed"));
+
+      const result = await validateSession(token);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("VALIDATION_ERROR");
     });
   });
 
   describe("extractSessionToken", () => {
-    it("should extract token from session_admin cookie", () => {
+    // Helper to create a valid JWT-like token with role
+    const createMockToken = (role) => {
+      const payload = Buffer.from(JSON.stringify({ role })).toString("base64");
+      return `header.${payload}.signature`;
+    };
+
+    it("should extract token from session_admin cookie with ADMIN role", () => {
+      const adminToken = createMockToken("ADMIN");
       const request = {
         cookies: {
           get: jest.fn((name) => {
-            if (name === "session_admin") return { value: "admin-token" };
+            if (name === "session_admin") return { value: adminToken };
             return undefined;
           }),
         },
       };
 
-      const token = extractSessionToken(request);
-      expect(token).toBe("admin-token");
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(adminToken);
+      expect(result.source).toBe("session_admin");
+      expect(result.conflictingCookies).toEqual([]);
+      expect(result.invalidCookies).toEqual([]);
     });
 
-    it("should extract token from session_operator cookie", () => {
+    it("should extract token from session_operator cookie with OPERATOR role", () => {
+      const operatorToken = createMockToken("OPERATOR");
       const request = {
         cookies: {
           get: jest.fn((name) => {
-            if (name === "session_operator") return { value: "operator-token" };
+            if (name === "session_operator") return { value: operatorToken };
             return undefined;
           }),
         },
       };
 
-      const token = extractSessionToken(request);
-      expect(token).toBe("operator-token");
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(operatorToken);
+      expect(result.source).toBe("session_operator");
+      expect(result.conflictingCookies).toEqual([]);
+      expect(result.invalidCookies).toEqual([]);
     });
 
     it("should extract token from legacy session cookie", () => {
+      const legacyToken = createMockToken("ADMIN");
       const request = {
         cookies: {
           get: jest.fn((name) => {
-            if (name === "session") return { value: "legacy-token" };
+            if (name === "session") return { value: legacyToken };
             return undefined;
           }),
         },
       };
 
-      const token = extractSessionToken(request);
-      expect(token).toBe("legacy-token");
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(legacyToken);
+      expect(result.source).toBe("session");
+      expect(result.conflictingCookies).toEqual([]);
+      expect(result.invalidCookies).toEqual([]);
     });
 
-    it("should prioritize session_admin over session_operator", () => {
+    it("should prioritize role-matched cookie over others", () => {
+      const adminToken = createMockToken("ADMIN");
+      const operatorToken = createMockToken("OPERATOR");
       const request = {
         cookies: {
           get: jest.fn((name) => {
-            if (name === "session_admin") return { value: "admin-token" };
-            if (name === "session_operator") return { value: "operator-token" };
+            if (name === "session_admin") return { value: adminToken };
+            if (name === "session_operator") return { value: operatorToken };
             return undefined;
           }),
         },
       };
 
-      const token = extractSessionToken(request);
-      expect(token).toBe("admin-token");
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(adminToken);
+      expect(result.source).toBe("session_admin");
+      expect(result.conflictingCookies).toContain("session_operator");
+    });
+
+    it("should detect and mark conflicting cookies", () => {
+      const adminToken = createMockToken("ADMIN");
+      const operatorToken = createMockToken("OPERATOR");
+      const legacyToken = createMockToken("ADMIN");
+      const request = {
+        cookies: {
+          get: jest.fn((name) => {
+            if (name === "session_admin") return { value: adminToken };
+            if (name === "session_operator") return { value: operatorToken };
+            if (name === "session") return { value: legacyToken };
+            return undefined;
+          }),
+        },
+      };
+
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(adminToken);
+      expect(result.source).toBe("session_admin");
+      expect(result.conflictingCookies).toContain("session_operator");
+      expect(result.conflictingCookies).toContain("session");
+      expect(result.shouldClearCookies).toEqual(result.conflictingCookies);
+    });
+
+    it("should detect invalid token formats", () => {
+      const request = {
+        cookies: {
+          get: jest.fn((name) => {
+            if (name === "session_admin") return { value: "invalid-token" };
+            return undefined;
+          }),
+        },
+      };
+
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(null);
+      expect(result.source).toBe(null);
+      expect(result.invalidCookies).toContain("session_admin");
+      expect(result.shouldClearCookies).toContain("session_admin");
+    });
+
+    it("should handle mismatched cookie names (OPERATOR token in admin cookie)", () => {
+      const operatorToken = createMockToken("OPERATOR");
+      const request = {
+        cookies: {
+          get: jest.fn((name) => {
+            if (name === "session_admin") return { value: operatorToken };
+            return undefined;
+          }),
+        },
+      };
+
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(operatorToken);
+      expect(result.source).toBe("session_admin");
+      // Should mark the misnamed cookie for cleanup
+      expect(result.conflictingCookies).toContain("session_admin");
     });
 
     it("should return null when no cookies present", () => {
@@ -203,8 +292,28 @@ describe("Session Validation", () => {
         },
       };
 
-      const token = extractSessionToken(request);
-      expect(token).toBe(null);
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(null);
+      expect(result.source).toBe(null);
+      expect(result.conflictingCookies).toEqual([]);
+      expect(result.invalidCookies).toEqual([]);
+    });
+
+    it("should fallback to any valid token when role extraction fails", () => {
+      // Token without role in payload
+      const tokenWithoutRole = "header.eyJ1c2VySWQiOiIxMjMifQ.signature";
+      const request = {
+        cookies: {
+          get: jest.fn((name) => {
+            if (name === "session_admin") return { value: tokenWithoutRole };
+            return undefined;
+          }),
+        },
+      };
+
+      const result = extractSessionToken(request);
+      expect(result.token).toBe(tokenWithoutRole);
+      expect(result.source).toBe("session_admin");
     });
   });
 });

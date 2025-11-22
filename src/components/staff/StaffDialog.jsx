@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function StaffDialog({
@@ -19,6 +19,7 @@ export default function StaffDialog({
   formData,
   handleInputChange,
   handleSubmit,
+  isSubmitting = false,
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -237,12 +238,14 @@ export default function StaffDialog({
           </div>
 
           <div>
-            <Button
+            <LoadingButton
               type="submit"
               className="w-full bg-blue-700 hover:bg-blue-600 text-white"
+              isLoading={isSubmitting}
+              loadingText="Menyimpan..."
             >
               Simpan
-            </Button>
+            </LoadingButton>
           </div>
         </form>
       </DialogContent>

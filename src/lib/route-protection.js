@@ -122,28 +122,227 @@ export const ROUTE_RULES = {
 };
 
 /**
- * Extract session token from request cookies
- * Checks multiple cookie formats for backward compatibility
- * Priority: session_admin > session_operator > session (legacy)
+ * Validate a session token format
+ * Checks if token is a valid JWT format (basic validation)
+ *
+ * @param {string} token - Token to validate
+ * @returns {boolean} True if token appears to be valid JWT format
+ */
+function isValidTokenFormat(token) {
+  if (!token || typeof token !== "string") {
+    return false;
+  }
+
+  // JWT tokens have 3 parts separated by dots
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  // Each part should be non-empty
+  return parts.every((part) => part.length > 0);
+}
+
+/**
+ * Extract user role from JWT token without full verification
+ * Used for cookie prioritization logic
+ * Note: This is NOT a security check, just for cookie selection
+ *
+ * @param {string} token - JWT token
+ * @returns {string|null} User role or null if cannot be extracted
+ */
+function extractRoleFromToken(token) {
+  try {
+    if (!isValidTokenFormat(token)) {
+      return null;
+    }
+
+    // Decode JWT payload (middle part)
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(
+      Buffer.from(payload, "base64").toString("utf-8")
+    );
+
+    return decoded.role || null;
+  } catch (error) {
+    // If we can't decode, return null
+    return null;
+  }
+}
+
+/**
+ * Extract session token from request cookies with enhanced logic
+ * Prioritizes role-specific cookies based on the user's actual role
+ * Detects and handles conflicting session cookies
+ * Validates token format before returning
+ *
+ * Enhanced behavior (Requirement 2.2):
+ * 1. Extracts all available session cookies
+ * 2. Validates token format for each cookie
+ * 3. Attempts to determine user role from tokens
+ * 4. Prioritizes cookie matching user's actual role
+ * 5. Falls back to any valid session cookie with smart priority
+ * 6. Returns metadata about conflicting cookies for cleanup
+ * 7. Handles edge cases where role extraction fails
  *
  * @param {Request} request - Next.js request object
- * @returns {string|null} Session token or null if not found
+ * @returns {object} Extraction result with token and metadata
  */
 export function extractSessionToken(request) {
   const cookies = request.cookies;
 
-  // Try role-specific cookies first (preferred)
+  // Extract all session cookies
   const adminToken = cookies.get("session_admin")?.value;
-  if (adminToken) return adminToken;
-
   const operatorToken = cookies.get("session_operator")?.value;
-  if (operatorToken) return operatorToken;
-
-  // Fallback to legacy session cookie for backward compatibility
   const legacyToken = cookies.get("session")?.value;
-  if (legacyToken) return legacyToken;
 
-  return null;
+  // Track which cookies exist
+  const availableCookies = {
+    session_admin: adminToken,
+    session_operator: operatorToken,
+    session: legacyToken,
+  };
+
+  // Validate token formats and extract roles
+  const validTokens = {}; // cookieName -> token
+  const tokenRoles = {}; // cookieName -> role
+  const invalidCookies = [];
+
+  for (const [cookieName, token] of Object.entries(availableCookies)) {
+    if (token) {
+      // Check format and expiration
+      let isExpired = false;
+      try {
+        const payload = token.split(".")[1];
+        const decoded = JSON.parse(
+          Buffer.from(payload, "base64").toString("utf-8")
+        );
+        if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+          isExpired = true;
+        }
+      } catch (e) {
+        isExpired = true;
+      }
+
+      if (isValidTokenFormat(token) && !isExpired) {
+        validTokens[cookieName] = token;
+        // Try to extract role from token
+        const role = extractRoleFromToken(token);
+        if (role) {
+          tokenRoles[cookieName] = role;
+        }
+      } else {
+        invalidCookies.push(cookieName);
+      }
+    }
+  }
+
+  // If no valid tokens found, return null with cleanup info
+  if (Object.keys(validTokens).length === 0) {
+    return {
+      token: null,
+      source: null,
+      conflictingCookies: [],
+      invalidCookies: invalidCookies,
+      shouldClearCookies: invalidCookies,
+    };
+  }
+
+  // Strategy: Prioritize cookie name matching token role
+  // This ensures we use the correct cookie for the user's actual role
+  let selectedToken = null;
+  let selectedSource = null;
+  const conflictingCookies = [];
+
+  // Phase 1: Try to find perfect match (cookie name matches token role)
+  // Check admin token in admin cookie
+  if (validTokens.session_admin && tokenRoles.session_admin === "ADMIN") {
+    selectedToken = validTokens.session_admin;
+    selectedSource = "session_admin";
+
+    // Mark other cookies as conflicting
+    if (validTokens.session_operator)
+      conflictingCookies.push("session_operator");
+    if (validTokens.session) conflictingCookies.push("session");
+  }
+
+  // Check operator token in operator cookie (if no admin match)
+  if (
+    !selectedToken &&
+    validTokens.session_operator &&
+    tokenRoles.session_operator === "OPERATOR"
+  ) {
+    selectedToken = validTokens.session_operator;
+    selectedSource = "session_operator";
+
+    // Mark other cookies as conflicting
+    if (validTokens.session_admin) conflictingCookies.push("session_admin");
+    if (validTokens.session) conflictingCookies.push("session");
+  }
+
+  // Phase 2: Handle mismatched cookies (cookie name doesn't match token role)
+  // This can happen if cookies weren't cleaned up properly
+  if (!selectedToken) {
+    // Check if admin cookie contains operator token (mismatch)
+    if (validTokens.session_admin && tokenRoles.session_admin === "OPERATOR") {
+      selectedToken = validTokens.session_admin;
+      selectedSource = "session_admin";
+      // Mark this cookie for cleanup since it's misnamed
+      conflictingCookies.push("session_admin");
+      // Also mark other cookies as conflicting
+      if (validTokens.session_operator)
+        conflictingCookies.push("session_operator");
+      if (validTokens.session) conflictingCookies.push("session");
+    }
+    // Check if operator cookie contains admin token (mismatch)
+    else if (
+      validTokens.session_operator &&
+      tokenRoles.session_operator === "ADMIN"
+    ) {
+      selectedToken = validTokens.session_operator;
+      selectedSource = "session_operator";
+      // Mark this cookie for cleanup since it's misnamed
+      conflictingCookies.push("session_operator");
+      // Also mark other cookies as conflicting
+      if (validTokens.session_admin) conflictingCookies.push("session_admin");
+      if (validTokens.session) conflictingCookies.push("session");
+    }
+  }
+
+  // Phase 3: Fallback to legacy cookie or any valid token
+  if (!selectedToken && validTokens.session) {
+    selectedToken = validTokens.session;
+    selectedSource = "session";
+    // Mark role-specific cookies as conflicting if they exist
+    if (validTokens.session_admin) conflictingCookies.push("session_admin");
+    if (validTokens.session_operator)
+      conflictingCookies.push("session_operator");
+  }
+
+  // Phase 4: Last resort - use any valid token even without role info
+  // This handles edge cases where role extraction fails
+  if (!selectedToken) {
+    // Priority: session_admin > session_operator > session (already checked)
+    if (validTokens.session_admin) {
+      selectedToken = validTokens.session_admin;
+      selectedSource = "session_admin";
+      if (validTokens.session_operator)
+        conflictingCookies.push("session_operator");
+      if (validTokens.session) conflictingCookies.push("session");
+    } else if (validTokens.session_operator) {
+      selectedToken = validTokens.session_operator;
+      selectedSource = "session_operator";
+      if (validTokens.session) conflictingCookies.push("session");
+    }
+  }
+
+  return {
+    token: selectedToken,
+    source: selectedSource,
+    conflictingCookies: conflictingCookies,
+    invalidCookies: invalidCookies,
+    shouldClearCookies: [...conflictingCookies, ...invalidCookies],
+  };
 }
 
 /**
@@ -543,7 +742,9 @@ export async function validateSession(token) {
     }
 
     // Handle unexpected errors
-    console.error("Session validation error:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Session validation error:", error);
+    }
     return {
       valid: false,
       error: "VALIDATION_ERROR",
@@ -558,13 +759,23 @@ export async function validateSession(token) {
  * Validate session from request
  * Extracts token from cookies and validates it
  * Convenience wrapper around validateSession() for middleware use
+ * Enhanced to handle cookie conflicts and cleanup
  *
  * @param {Request} request - Next.js request object
- * @returns {Promise<object>} Validation result with session data or error
+ * @returns {Promise<object>} Validation result with session data, error, and cleanup info
  */
 export async function validateSessionFromRequest(request) {
-  const token = extractSessionToken(request);
-  return await validateSession(token);
+  const extraction = extractSessionToken(request);
+  const validationResult = await validateSession(extraction.token);
+
+  // Add cookie cleanup information to validation result
+  return {
+    ...validationResult,
+    cookieSource: extraction.source,
+    conflictingCookies: extraction.conflictingCookies,
+    invalidCookies: extraction.invalidCookies,
+    shouldClearCookies: extraction.shouldClearCookies,
+  };
 }
 
 /**
@@ -608,9 +819,11 @@ export function checkRoutePermissions(user, requiredPermissions) {
 
     // Validate permission function exists
     if (!permissionFunction || typeof permissionFunction !== "function") {
-      console.error(
-        `Permission function '${permissionName}' not found in middleware.js`
-      );
+      if (process.env.NODE_ENV !== "production") {
+        console.error(
+          `Permission function '${permissionName}' not found in middleware.js`
+        );
+      }
       return {
         allowed: false,
         reason: "INVALID_PERMISSION",
@@ -757,6 +970,8 @@ export async function evaluateRouteAccess(request, pathname) {
         sessionValidation.error
       ),
       shouldClearCookie: sessionValidation.shouldClearCookie || false,
+      shouldClearCookies: sessionValidation.shouldClearCookies || [],
+      cookieSource: sessionValidation.cookieSource,
     };
   }
 
@@ -776,6 +991,8 @@ export async function evaluateRouteAccess(request, pathname) {
     missingPermission: accessCheck.missingPermission,
     requiredRoles: accessCheck.requiredRoles,
     userRole: accessCheck.userRole,
+    shouldClearCookies: sessionValidation.shouldClearCookies || [],
+    cookieSource: sessionValidation.cookieSource,
   };
 }
 

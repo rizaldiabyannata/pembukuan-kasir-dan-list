@@ -620,6 +620,7 @@ export default function PengeluaranPage() {
         throw new Error(errorData.error || "Gagal menyetujui edit");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(currentPage);
       setIsApprovalDialogOpen(false);
       toast.success("Permintaan Perubahan Disetujui", {
@@ -627,10 +628,11 @@ export default function PengeluaranPage() {
       });
     } catch (err) {
       console.error("Failed to approve edit:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Menyetujui Perubahan", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so dialog can display error
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -650,6 +652,7 @@ export default function PengeluaranPage() {
         throw new Error(errorData.error || "Gagal menyetujui delete");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(1); // Reset to first page
       setIsApprovalDialogOpen(false);
       toast.success("Permintaan Penghapusan Disetujui", {
@@ -657,10 +660,11 @@ export default function PengeluaranPage() {
       });
     } catch (err) {
       console.error("Failed to approve delete:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Menyetujui Penghapusan", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so dialog can display error
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -682,6 +686,7 @@ export default function PengeluaranPage() {
         throw new Error(errorData.error || "Gagal menolak request");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(currentPage);
       setIsApprovalDialogOpen(false);
       toast.success("Permintaan Ditolak", {
@@ -689,10 +694,11 @@ export default function PengeluaranPage() {
       });
     } catch (err) {
       console.error("Failed to reject:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Memproses Penolakan", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so dialog can display error
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -804,16 +810,19 @@ export default function PengeluaranPage() {
         throw new Error("Gagal memproses respons server");
       }
 
+      // Success: close dialog, clear state, and refresh data
       setIsDialogOpen(false);
       setEditingData(null);
       setExistingAttachments([]);
       await fetchData(currentPage);
     } catch (err) {
       console.error("Failed to save", err.message);
+      // Error: keep dialog open and show error message
       await showAlert({
         message: "Gagal menyimpan: " + err.message,
         type: "error",
       });
+      // Dialog stays open so user can fix errors or retry
     } finally {
       setIsSubmittingForm(false);
     }
@@ -861,6 +870,7 @@ export default function PengeluaranPage() {
                 totalPages={totalPages}
                 onPageChange={handlePageChange}
                 showInfo={true}
+                isLoading={isLoading}
               />
             </div>
           )}

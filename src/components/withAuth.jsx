@@ -1,59 +1,56 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+/**
+ * Debounce utility function
+ * Delays execution of a function until after a specified wait time has elapsed
+ * since the last time it was invoked
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 /**
  * Higher-Order Component untuk protect admin pages
  * Automatically redirects ke "/" jika unauthorized dengan improved session handling
+ *
+ * Improvements:
+ * - Debounced auth checks to prevent race conditions
+ * - Serialized auth checks with in-progress flag
+ * - Removed aggressive fetch interceptor
+ * - Simplified visibility change handler with time-based checks
+ * - Redirect state management to prevent multiple redirects
  */
 export default function withAuth(WrappedComponent) {
   return function AuthenticatedComponent(props) {
     const router = useRouter();
-    const redirectInProgressRef = useRef(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
+    const authCheckInProgress = useRef(false);
+    const lastVisibilityCheck = useRef(Date.now());
+    const mountTime = useRef(Date.now());
 
-    useEffect(() => {
-      const checkAuth = async () => {
-        try {
-          const response = await fetch("/api/auth/me", {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            console.log("Not authenticated, redirecting to login...");
-            performRedirect();
-          }
-        } catch (error) {
-          console.error("Auth check failed:", error);
-          performRedirect();
-        }
-      };
-
-      // Only check auth if not already redirecting
-      if (!redirectInProgressRef.current) {
-        checkAuth();
-      }
-    }, [router]);
+    // Minimum time between visibility checks (30 seconds)
+    const VISIBILITY_CHECK_COOLDOWN = 30000;
 
     // Function to handle redirect with proper cleanup
     const performRedirect = () => {
-      if (redirectInProgressRef.current) return;
+      if (isRedirecting) return;
 
-      redirectInProgressRef.current = true;
+      setIsRedirecting(true);
       console.log("Performing auth redirect to home page...");
 
-      // Clear any existing timers or intervals
-      if (typeof window !== 'undefined') {
-        // Clear any session-related intervals (if they exist globally)
-        const highestId = window.setTimeout(() => {}, 0);
-        for (let i = 0; i < highestId; i++) {
-          window.clearTimeout(i);
-          window.clearInterval(i);
-        }
-      }
-
       // Show logout message if toast library is available
-      if (typeof window !== 'undefined' && window.sonner) {
+      if (typeof window !== "undefined" && window.sonner) {
         window.sonner.toast.error("Sesi Berakhir", {
           description: "Sesi Anda telah berakhir. Silakan login kembali.",
           duration: 3000,
@@ -66,63 +63,84 @@ export default function withAuth(WrappedComponent) {
       }, 500);
     };
 
-    // Intercept fetch globally untuk handle 401/403 dengan improved logic
-    useEffect(() => {
-      const originalFetch = window.fetch;
+    // Core auth check function
+    const checkAuth = async () => {
+      // Prevent multiple simultaneous checks
+      if (authCheckInProgress.current || isRedirecting) {
+        console.log(
+          "Auth check already in progress or redirecting, skipping..."
+        );
+        return;
+      }
 
-      window.fetch = async (...args) => {
-        const response = await originalFetch(...args);
+      authCheckInProgress.current = true;
 
-        // Clone response untuk bisa membaca body
-        const clonedResponse = response.clone();
+      try {
+        const response = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
 
-        // Check if unauthorized or forbidden
-        if (response.status === 401 || response.status === 403) {
-          // Check if this is an auth-related endpoint to avoid loops
-          const url = args[0] instanceof Request ? args[0].url : args[0];
-          const isAuthEndpoint = url.includes('/api/auth/');
-
-          if (!isAuthEndpoint) {
-            console.log("API returned 401/403, session expired, redirecting...");
-            performRedirect();
-            return clonedResponse;
-          }
+        if (!response.ok) {
+          console.log("Not authenticated, redirecting to login...");
+          performRedirect();
         }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        // Only redirect on auth errors, not network errors
+        // Network errors might be transient
+        if (error.message && error.message.includes("401")) {
+          performRedirect();
+        }
+      } finally {
+        authCheckInProgress.current = false;
+      }
+    };
 
-        return clonedResponse;
-      };
+    // Debounced version of checkAuth to prevent rapid-fire checks
+    const debouncedAuthCheck = useRef(debounce(checkAuth, 500)).current;
 
-      // Cleanup
-      return () => {
-        window.fetch = originalFetch;
-      };
-    }, [router]);
+    // Single auth check on mount
+    useEffect(() => {
+      if (!isRedirecting) {
+        checkAuth();
+      }
+    }, []); // Empty dependency array - only run once on mount
 
-    // Handle page visibility changes to check session when user returns
+    // Simplified visibility change handler - only check after significant time
     useEffect(() => {
       const handleVisibilityChange = () => {
-        if (!document.hidden && !redirectInProgressRef.current) {
-          // User returned to tab, check if session is still valid
-          fetch("/api/auth/me", { credentials: "include" })
-            .then(response => {
-              if (!response.ok) {
-                console.log("Session invalid after tab focus, redirecting...");
-                performRedirect();
-              }
-            })
-            .catch(error => {
-              console.error("Session check failed on visibility change:", error);
-              // Don't redirect on network errors, only on auth failures
-            });
+        // Only check if:
+        // 1. Page is now visible (not hidden)
+        // 2. Not already redirecting
+        // 3. Enough time has passed since last check
+        // 4. Component has been mounted for at least 5 seconds (avoid initial checks)
+        const now = Date.now();
+        const timeSinceLastCheck = now - lastVisibilityCheck.current;
+        const timeSinceMount = now - mountTime.current;
+
+        if (
+          !document.hidden &&
+          !isRedirecting &&
+          timeSinceLastCheck > VISIBILITY_CHECK_COOLDOWN &&
+          timeSinceMount > 5000
+        ) {
+          console.log(
+            "Tab regained focus after significant time, checking session..."
+          );
+          lastVisibilityCheck.current = now;
+          debouncedAuthCheck();
         }
       };
 
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
 
       return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange
+        );
       };
-    }, []);
+    }, [isRedirecting, debouncedAuthCheck]);
 
     return <WrappedComponent {...props} />;
   };

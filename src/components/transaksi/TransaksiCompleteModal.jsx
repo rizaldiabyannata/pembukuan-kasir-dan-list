@@ -62,10 +62,8 @@ export default function TransaksiCompleteModal({
     if (transaction) {
       // Set default actual checkin time to current time
       const now = new Date();
-      const tzOffset = now.getTimezoneOffset() * 60000;
-      const localISOTime = new Date(now.getTime() - tzOffset)
-        .toISOString()
-        .slice(0, 16);
+      // Format date as-is without timezone manipulation
+      const localISOTime = now.toISOString().slice(0, 16);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActualCheckinTime(localISOTime);
 
@@ -220,10 +218,8 @@ export default function TransaksiCompleteModal({
                   }
                   setDate={(date) => {
                     if (date) {
-                      const tzOffset = date.getTimezoneOffset() * 60000;
-                      const localISOTime = new Date(date.getTime() - tzOffset)
-                        .toISOString()
-                        .slice(0, 16);
+                      // Format date as-is without timezone manipulation
+                      const localISOTime = date.toISOString().slice(0, 16);
                       handleCheckinTimeChange({
                         target: { value: localISOTime },
                       });

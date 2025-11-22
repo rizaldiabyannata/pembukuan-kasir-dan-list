@@ -36,12 +36,34 @@ function LoadingButton({
       size={size}
       disabled={isLoading || disabled}
       onClick={onClick}
-      className={cn(className)}
+      className={cn("transition-all duration-200", className)}
       aria-busy={isLoading}
       {...props}
     >
-      {isLoading && <Spinner size="sm" />}
-      {isLoading && loadingText ? loadingText : children}
+      <span
+        className={cn(
+          "inline-flex items-center gap-2 transition-opacity duration-200",
+          isLoading ? "opacity-100" : "opacity-0 w-0 overflow-hidden"
+        )}
+      >
+        <Spinner size="sm" />
+      </span>
+      <span
+        className={cn(
+          "transition-opacity duration-200",
+          isLoading && loadingText ? "opacity-100" : "opacity-0 hidden"
+        )}
+      >
+        {loadingText}
+      </span>
+      <span
+        className={cn(
+          "transition-opacity duration-200",
+          !isLoading || !loadingText ? "opacity-100" : "opacity-0 hidden"
+        )}
+      >
+        {children}
+      </span>
     </Button>
   );
 }

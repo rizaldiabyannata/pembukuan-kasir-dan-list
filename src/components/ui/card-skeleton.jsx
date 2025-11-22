@@ -63,7 +63,7 @@ function CardSkeleton({ count = 6, variant = "default", className, ...props }) {
   return (
     <div
       className={cn(
-        "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+        "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 animate-in fade-in duration-200",
         className
       )}
       role="status"
@@ -74,7 +74,10 @@ function CardSkeleton({ count = 6, variant = "default", className, ...props }) {
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={`card-skeleton-${index}`}
-          className="rounded-lg border p-4 bg-card"
+          className="rounded-lg border p-4 bg-card animate-in fade-in duration-200"
+          style={{
+            animationDelay: `${index * 50}ms`,
+          }}
         >
           {renderCardContent()}
         </div>

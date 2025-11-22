@@ -7,6 +7,273 @@ import nodemailer from "nodemailer";
 // Create reusable transporter
 let transporter = null;
 
+/**
+ * Error types for email operations
+ */
+export const EmailErrorType = {
+  AUTH_FAILED: "auth_failed",
+  NETWORK_ERROR: "network_error",
+  INVALID_RECIPIENT: "invalid_recipient",
+  RATE_LIMIT: "rate_limit",
+  UNKNOWN: "unknown",
+};
+
+/**
+ * User-friendly error messages
+ */
+const ERROR_MESSAGES = {
+  [EmailErrorType.AUTH_FAILED]:
+    "Email server configuration issue. Please contact support.",
+  [EmailErrorType.NETWORK_ERROR]:
+    "Network connectivity issue. Please try again later.",
+  [EmailErrorType.INVALID_RECIPIENT]:
+    "The email address may be invalid. Please check and try again.",
+  [EmailErrorType.RATE_LIMIT]:
+    "Too many email requests. Please try again in a few minutes.",
+  [EmailErrorType.UNKNOWN]:
+    "An unexpected error occurred. Please try again or contact support.",
+};
+
+/**
+ * Classify error type based on error details
+ */
+function classifyError(error) {
+  const errorMessage = error.message?.toLowerCase() || "";
+  const errorCode = error.code?.toLowerCase() || "";
+  const responseCode = error.responseCode || 0;
+
+  // Authentication errors
+  if (
+    errorMessage.includes("authentication") ||
+    errorMessage.includes("auth") ||
+    errorMessage.includes("invalid login") ||
+    errorMessage.includes("username and password not accepted") ||
+    errorCode === "eauth" ||
+    responseCode === 535
+  ) {
+    return EmailErrorType.AUTH_FAILED;
+  }
+
+  // Network errors
+  if (
+    errorMessage.includes("timeout") ||
+    errorMessage.includes("econnrefused") ||
+    errorMessage.includes("enotfound") ||
+    errorMessage.includes("network") ||
+    errorCode === "etimedout" ||
+    errorCode === "econnrefused" ||
+    errorCode === "enotfound" ||
+    responseCode === 421
+  ) {
+    return EmailErrorType.NETWORK_ERROR;
+  }
+
+  // Invalid recipient errors
+  if (
+    errorMessage.includes("recipient") ||
+    errorMessage.includes("mailbox") ||
+    errorMessage.includes("user unknown") ||
+    errorMessage.includes("no such user") ||
+    errorMessage.includes("invalid address") ||
+    responseCode === 550 ||
+    responseCode === 551 ||
+    responseCode === 553
+  ) {
+    return EmailErrorType.INVALID_RECIPIENT;
+  }
+
+  // Rate limit errors
+  if (
+    errorMessage.includes("rate limit") ||
+    errorMessage.includes("too many") ||
+    errorMessage.includes("quota") ||
+    errorMessage.includes("throttle") ||
+    responseCode === 450 ||
+    responseCode === 451 ||
+    responseCode === 452
+  ) {
+    return EmailErrorType.RATE_LIMIT;
+  }
+
+  return EmailErrorType.UNKNOWN;
+}
+
+/**
+ * Get user-friendly error message
+ */
+export function getUserFriendlyErrorMessage(errorType) {
+  return ERROR_MESSAGES[errorType] || ERROR_MESSAGES[EmailErrorType.UNKNOWN];
+}
+
+/**
+ * Check if error type is retryable
+ */
+function isRetryableError(errorType) {
+  // Don't retry for authentication failures or invalid recipients
+  return (
+    errorType !== EmailErrorType.AUTH_FAILED &&
+    errorType !== EmailErrorType.INVALID_RECIPIENT
+  );
+}
+
+/**
+ * Calculate exponential backoff delay
+ */
+function calculateBackoffDelay(attemptNumber, initialDelay = 1000) {
+  // Exponential backoff: 1s, 2s, 4s
+  return initialDelay * Math.pow(2, attemptNumber - 1);
+}
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Send email with retry mechanism and exponential backoff
+ * @param {Function} sendFunction - The function that sends the email
+ * @param {string} recipient - Email recipient
+ * @param {Object} options - Retry options
+ * @returns {Promise} - Result of email send
+ */
+export async function sendEmailWithRetry(
+  sendFunction,
+  recipient,
+  options = {}
+) {
+  const maxRetries = options.maxRetries || 3;
+  const initialDelay = options.initialDelay || 1000;
+  const metadata = options.metadata || {};
+
+  let lastError = null;
+  let lastErrorType = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Log retry attempt if not first attempt
+      if (attempt > 1) {
+        logEmailOperation("send", recipient, "retrying", {
+          ...metadata,
+          retryCount: attempt - 1,
+          attemptNumber: attempt,
+          maxRetries,
+        });
+      }
+
+      // Attempt to send email
+      const result = await sendFunction();
+
+      // If successful, return result with retry count
+      return {
+        ...result,
+        retryCount: attempt - 1,
+      };
+    } catch (error) {
+      lastError = error;
+      lastErrorType = error.errorType || classifyError(error);
+
+      // Log the error for this attempt
+      logEmailOperation("send", recipient, "failed", {
+        ...metadata,
+        retryCount: attempt - 1,
+        attemptNumber: attempt,
+        maxRetries,
+        errorType: lastErrorType,
+        errorMessage: error.message,
+      });
+
+      // Check if error is retryable
+      if (!isRetryableError(lastErrorType)) {
+        logEmailOperation("send", recipient, "non-retryable", {
+          ...metadata,
+          errorType: lastErrorType,
+          reason: "Error type is not retryable",
+        });
+        throw error;
+      }
+
+      // If this was the last attempt, throw the error
+      if (attempt === maxRetries) {
+        logEmailOperation("send", recipient, "max-retries-reached", {
+          ...metadata,
+          retryCount: attempt - 1,
+          errorType: lastErrorType,
+        });
+        throw error;
+      }
+
+      // Calculate backoff delay and wait
+      const delay = calculateBackoffDelay(attempt, initialDelay);
+      logEmailOperation("send", recipient, "backoff", {
+        ...metadata,
+        retryCount: attempt - 1,
+        attemptNumber: attempt,
+        nextAttempt: attempt + 1,
+        delayMs: delay,
+      });
+
+      await sleep(delay);
+    }
+  }
+
+  // This should never be reached, but just in case
+  throw lastError;
+}
+
+/**
+ * Log email operation
+ */
+function logEmailOperation(operation, recipient, outcome, metadata = {}) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    component: "email-service",
+    operation,
+    recipient,
+    outcome,
+    ...metadata,
+  };
+
+  if (outcome === "success") {
+    console.info("[EMAIL-SERVICE]", JSON.stringify(logEntry));
+  } else if (outcome === "failed") {
+    console.error("[EMAIL-SERVICE]", JSON.stringify(logEntry));
+  } else {
+    console.log("[EMAIL-SERVICE]", JSON.stringify(logEntry));
+  }
+}
+
+/**
+ * Log detailed error information
+ */
+function logEmailError(recipient, error, metadata = {}) {
+  const errorType = classifyError(error);
+  const timestamp = new Date().toISOString();
+
+  const errorLog = {
+    timestamp,
+    component: "email-service",
+    operation: "send",
+    recipient,
+    outcome: "failed",
+    error: {
+      type: errorType,
+      message: error.message,
+      code: error.code || null,
+      responseCode: error.responseCode || null,
+      command: error.command || null,
+      stack: error.stack,
+    },
+    ...metadata,
+  };
+
+  console.error("[EMAIL-SERVICE] Error:", JSON.stringify(errorLog));
+
+  return errorType;
+}
+
 function getTransporter() {
   if (!transporter) {
     // Configure email transporter
@@ -34,6 +301,7 @@ export function generateOTP() {
  * Send OTP email for password reset
  */
 export async function sendPasswordResetOTP(email, otp, userName) {
+  const startTime = Date.now();
   const transport = getTransporter();
 
   const mailOptions = {
@@ -151,6 +419,9 @@ export async function sendPasswordResetOTP(email, otp, userName) {
             
             <div class="content">
               <p>Masukkan kode OTP ini di halaman reset password untuk melanjutkan.</p>
+              <div style="text-align: center; margin: 24px 0;">
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL}/reset-password/verify?email=${encodeURIComponent(email)}" class="button">Verifikasi OTP</a>
+              </div>
             </div>
             
             <div class="warning">
@@ -185,20 +456,69 @@ Jika Anda tidak meminta reset password, abaikan email ini.
     `.trim(),
   };
 
-  try {
-    const info = await transport.sendMail(mailOptions);
-    console.log("Email sent:", info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error("Error sending email:", error);
-    throw new Error("Failed to send email");
-  }
+  // Log operation start
+  logEmailOperation("send", email, "pending", {
+    type: "otp",
+    provider: process.env.SMTP_HOST || "smtp.gmail.com",
+  });
+
+  // Define the send function for retry mechanism
+  const sendFunction = async () => {
+    try {
+      const info = await transport.sendMail(mailOptions);
+      const deliveryTime = Date.now() - startTime;
+
+      // Log successful send
+      logEmailOperation("send", email, "success", {
+        type: "otp",
+        messageId: info.messageId,
+        provider: process.env.SMTP_HOST || "smtp.gmail.com",
+        deliveryTime,
+        response: info.response,
+      });
+
+      return {
+        success: true,
+        messageId: info.messageId,
+        deliveryTime,
+      };
+    } catch (error) {
+      // Classify and log error
+      const errorType = logEmailError(email, error, {
+        type: "otp",
+        provider: process.env.SMTP_HOST || "smtp.gmail.com",
+      });
+
+      // Get user-friendly error message
+      const userMessage = getUserFriendlyErrorMessage(errorType);
+
+      // Create enhanced error
+      const enhancedError = new Error(userMessage);
+      enhancedError.originalError = error;
+      enhancedError.errorType = errorType;
+      enhancedError.code = error.code;
+      enhancedError.responseCode = error.responseCode;
+
+      throw enhancedError;
+    }
+  };
+
+  // Use retry mechanism
+  return await sendEmailWithRetry(sendFunction, email, {
+    maxRetries: parseInt(process.env.EMAIL_RETRY_MAX || "3"),
+    initialDelay: parseInt(process.env.EMAIL_RETRY_DELAY || "1000"),
+    metadata: {
+      type: "otp",
+      provider: process.env.SMTP_HOST || "smtp.gmail.com",
+    },
+  });
 }
 
 /**
  * Send password changed notification
  */
 export async function sendPasswordChangedNotification(email, userName) {
+  const startTime = Date.now();
   const transport = getTransporter();
 
   const mailOptions = {
@@ -238,12 +558,70 @@ export async function sendPasswordChangedNotification(email, userName) {
     `,
   };
 
+  // Log operation start
+  logEmailOperation("send", email, "pending", {
+    type: "notification",
+    provider: process.env.SMTP_HOST || "smtp.gmail.com",
+  });
+
+  // Define the send function for retry mechanism
+  const sendFunction = async () => {
+    try {
+      const info = await transport.sendMail(mailOptions);
+      const deliveryTime = Date.now() - startTime;
+
+      // Log successful send
+      logEmailOperation("send", email, "success", {
+        type: "notification",
+        messageId: info.messageId,
+        provider: process.env.SMTP_HOST || "smtp.gmail.com",
+        deliveryTime,
+        response: info.response,
+      });
+
+      return {
+        success: true,
+        messageId: info.messageId,
+        deliveryTime,
+      };
+    } catch (error) {
+      // Classify and log error
+      const errorType = logEmailError(email, error, {
+        type: "notification",
+        provider: process.env.SMTP_HOST || "smtp.gmail.com",
+      });
+
+      // Get user-friendly error message
+      const userMessage = getUserFriendlyErrorMessage(errorType);
+
+      // Create enhanced error
+      const enhancedError = new Error(userMessage);
+      enhancedError.originalError = error;
+      enhancedError.errorType = errorType;
+      enhancedError.code = error.code;
+      enhancedError.responseCode = error.responseCode;
+
+      throw enhancedError;
+    }
+  };
+
+  // Use retry mechanism, but catch errors for notifications (don't throw)
   try {
-    await transport.sendMail(mailOptions);
-    return { success: true };
+    return await sendEmailWithRetry(sendFunction, email, {
+      maxRetries: parseInt(process.env.EMAIL_RETRY_MAX || "3"),
+      initialDelay: parseInt(process.env.EMAIL_RETRY_DELAY || "1000"),
+      metadata: {
+        type: "notification",
+        provider: process.env.SMTP_HOST || "smtp.gmail.com",
+      },
+    });
   } catch (error) {
-    console.error("Error sending notification:", error);
-    // Don't throw error for notifications
-    return { success: false };
+    // Don't throw error for notifications, just return failure
+    return {
+      success: false,
+      errorType: error.errorType,
+      errorMessage: error.message,
+      retryCount: 3, // Max retries reached
+    };
   }
 }

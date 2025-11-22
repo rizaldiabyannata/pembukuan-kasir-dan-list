@@ -31,6 +31,7 @@ export default function StaffPage() {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     try {
@@ -96,6 +97,7 @@ export default function StaffPage() {
     const method = editingStaff ? "PUT" : "POST";
     const url = editingStaff ? `/api/staff/${editingStaff.id}` : "/api/staff";
 
+    setIsSubmitting(true);
     try {
       const response = await fetch(url, {
         method,
@@ -125,6 +127,8 @@ export default function StaffPage() {
     } catch (error) {
       console.error("Failed to save staff", error);
       toast.error("Gagal menyimpan data staff");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -256,6 +260,7 @@ export default function StaffPage() {
         formData={formData}
         handleInputChange={handleInputChange}
         handleSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
       />
     </div>
   );

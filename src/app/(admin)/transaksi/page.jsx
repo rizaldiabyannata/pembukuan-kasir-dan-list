@@ -23,15 +23,15 @@ import {
 
 function getTodayDateString() {
   const today = new Date();
-  return today.toISOString().split("T")[0];
+  const offset = today.getTimezoneOffset() * 60000;
+  const localDate = new Date(today.getTime() - offset);
+  return localDate.toISOString().split("T")[0];
 }
 
 function getLocalDateTimeString(date = new Date()) {
-  const tzOffset = date.getTimezoneOffset() * 60000;
-  const localISOTime = new Date(date.getTime() - tzOffset)
-    .toISOString()
-    .slice(0, 16);
-  return localISOTime;
+  const offset = date.getTimezoneOffset() * 60000;
+  const localDate = new Date(date.getTime() - offset);
+  return localDate.toISOString().slice(0, 16);
 }
 
 const INITIAL_FORM_STATE = {
@@ -248,8 +248,10 @@ export default function TransaksiPage() {
   }, [currentPage]);
 
   useEffect(() => {
-    setCalculatedData(calculateTransactionFinancials(formData));
-  }, [formData]);
+    const selectedPackage = paketList.find((p) => p.id === formData.packageId);
+    const dataWithPackage = { ...formData, package: selectedPackage };
+    setCalculatedData(calculateTransactionFinancials(dataWithPackage));
+  }, [formData, paketList]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -454,21 +456,24 @@ export default function TransaksiPage() {
       if (id === "checkout_datetime" && prev.packageId) {
         const selectedPackage = paketList.find((p) => p.id === prev.packageId);
         if (selectedPackage) {
+          const checkoutDate = new Date(value);
+          let checkinDate;
+
           if (selectedPackage.durationHours) {
-            // For packages with hours duration
-            const checkoutDate = new Date(value);
-            const checkinDate = new Date(
+            // For packages with hours duration (CAR_RENTAL, FULL_DAY_TRIP)
+            checkinDate = new Date(
               checkoutDate.getTime() +
                 selectedPackage.durationHours * 60 * 60 * 1000
             );
-            updated.checkin_datetime = getLocalDateTimeString(checkinDate);
           } else if (selectedPackage.durationDays) {
-            // For packages with days duration
-            const checkoutDate = new Date(value);
-            const checkinDate = new Date(
+            // For packages with days duration (TOUR_PACKAGE)
+            checkinDate = new Date(
               checkoutDate.getTime() +
                 selectedPackage.durationDays * 24 * 60 * 60 * 1000
             );
+          }
+
+          if (checkinDate) {
             updated.checkin_datetime = getLocalDateTimeString(checkinDate);
           }
         }
@@ -730,15 +735,102 @@ export default function TransaksiPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.armadaId) {
+    // Client-side validation before submission
+
+    // Validate required fields
+    if (!formData.customer_name || formData.customer_name.trim() === "") {
       toast.error("Validasi Gagal", {
-        description: "Silakan pilih Armada terlebih dahulu.",
+        description: "Nama pelanggan wajib diisi",
       });
       return;
     }
+
+    if (!formData.customer_phone || formData.customer_phone.trim() === "") {
+      toast.error("Validasi Gagal", {
+        description: "Nomor telepon pelanggan wajib diisi",
+      });
+      return;
+    }
+
+    if (!formData.armadaId) {
+      toast.error("Validasi Gagal", {
+        description: "Silakan pilih Armada terlebih dahulu",
+      });
+      return;
+    }
+
     if (!formData.driverId) {
       toast.error("Validasi Gagal", {
-        description: "Silakan pilih Sopir terlebih dahulu.",
+        description: "Silakan pilih Sopir terlebih dahulu",
+      });
+      return;
+    }
+
+    // Validate dates
+    if (!formData.booking_date) {
+      toast.error("Validasi Gagal", {
+        description: "Tanggal booking wajib diisi",
+      });
+      return;
+    }
+
+    if (!formData.checkout_datetime) {
+      toast.error("Validasi Gagal", {
+        description: "Waktu mobil out (jalan) wajib diisi",
+      });
+      return;
+    }
+
+    if (!formData.checkin_datetime) {
+      toast.error("Validasi Gagal", {
+        description: "Waktu mobil in (selesai) wajib diisi",
+      });
+      return;
+    }
+
+    // Validate that checkin is after checkout
+    const checkoutDate = new Date(formData.checkout_datetime);
+    const checkinDate = new Date(formData.checkin_datetime);
+
+    if (checkinDate <= checkoutDate) {
+      toast.error("Validasi Gagal", {
+        description:
+          "Waktu mobil in (selesai) harus setelah waktu mobil out (jalan)",
+      });
+      return;
+    }
+
+    // Validate numeric fields are positive
+    if (!formData.all_in_rate || formData.all_in_rate <= 0) {
+      toast.error("Validasi Gagal", {
+        description: "Tarif sewa harus diisi dengan angka positif",
+      });
+      return;
+    }
+
+    if (
+      formData.overtime_rate_per_hour &&
+      formData.overtime_rate_per_hour < 0
+    ) {
+      toast.error("Validasi Gagal", {
+        description: "Tarif overtime tidak boleh negatif",
+      });
+      return;
+    }
+
+    if (formData.dp_amount && formData.dp_amount < 0) {
+      toast.error("Validasi Gagal", {
+        description: "Jumlah DP tidak boleh negatif",
+      });
+      return;
+    }
+
+    // Validate DP doesn't exceed total rate
+    const dpAmount = formData.dp_amount || 0;
+    const totalRate = formData.all_in_rate || 0;
+    if (dpAmount > totalRate) {
+      toast.error("Validasi Gagal", {
+        description: "Jumlah DP tidak boleh melebihi total tarif sewa",
       });
       return;
     }
@@ -804,15 +896,28 @@ export default function TransaksiPage() {
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || "Gagal menyimpan transaksi");
+
+        // Handle validation errors with detailed messages
+        if (errData.errors && Array.isArray(errData.errors)) {
+          // Display the first validation error
+          const firstError = errData.errors[0];
+          const errorMessage =
+            firstError?.message || errData.error || "Validasi gagal";
+          throw new Error(errorMessage);
+        }
+
+        throw new Error(
+          errData.error || errData.message || "Gagal menyimpan transaksi"
+        );
       }
 
+      // Success: close dialog, refresh data, and show success message
       toast.success(
         editingData
           ? "Transaksi berhasil diupdate!"
           : "Transaksi berhasil ditambahkan!",
         {
-          description: `${formData.customer_name} - ${formData.invoice_code}`,
+          description: `${formData.customer_name}`,
         }
       );
 
@@ -820,9 +925,11 @@ export default function TransaksiPage() {
       await fetchData(1); // Reset to first page after successful operation
     } catch (err) {
       console.error("Failed to save", err);
+      // Error: keep dialog open and show error message
       toast.error("Gagal menyimpan transaksi", {
         description: err.message,
       });
+      // Dialog stays open so user can fix validation errors or retry
     } finally {
       setIsSubmittingForm(false);
     }
@@ -877,6 +984,7 @@ export default function TransaksiPage() {
         throw new Error(errorData.message || "Gagal menyetujui transaksi");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(currentPage);
       setIsApprovalOpen(false);
       setApprovingTransaction(null);
@@ -885,10 +993,11 @@ export default function TransaksiPage() {
       });
     } catch (err) {
       console.error("Failed to approve:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Menyetujui", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so ApprovalDialog can display error
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -909,6 +1018,7 @@ export default function TransaksiPage() {
         throw new Error(errorData.message || "Gagal menolak transaksi");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(currentPage);
       setIsApprovalOpen(false);
       setApprovingTransaction(null);
@@ -917,10 +1027,11 @@ export default function TransaksiPage() {
       });
     } catch (err) {
       console.error("Failed to reject:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Menolak", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so ApprovalDialog can display error
     } finally {
       setIsSubmittingApproval(false);
     }
@@ -958,6 +1069,7 @@ export default function TransaksiPage() {
         throw new Error(errorData.error || "Gagal menyetujui edit");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(currentPage);
       setIsEditApprovalOpen(false);
       setApprovingEditTransaction(null);
@@ -966,10 +1078,11 @@ export default function TransaksiPage() {
       });
     } catch (err) {
       console.error("Failed to approve edit:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Menyetujui Edit", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so dialog can display error
     } finally {
       setIsSubmittingEditApproval(false);
     }
@@ -994,6 +1107,7 @@ export default function TransaksiPage() {
         throw new Error(errorData.error || "Gagal menolak edit");
       }
 
+      // Success: close dialog, refresh data, and show success message
       await fetchData(currentPage);
       setIsEditApprovalOpen(false);
       setApprovingEditTransaction(null);
@@ -1002,10 +1116,11 @@ export default function TransaksiPage() {
       });
     } catch (err) {
       console.error("Failed to reject edit:", err);
+      // Error: keep dialog open, show error message, and re-throw for dialog to handle
       toast.error("Gagal Menolak Edit", {
         description: err.message,
       });
-      throw err;
+      throw err; // Re-throw so dialog can display error
     } finally {
       setIsSubmittingEditApproval(false);
     }
@@ -1068,6 +1183,7 @@ export default function TransaksiPage() {
       console.log("API success response:", result);
       const updatedTransaction = result.data;
 
+      // Success: close dialog, refresh data, and show success message
       toast.success("Transaksi Berhasil Diselesaikan", {
         description: `${completingData.customer_name} - ${completingData.invoice_code}`,
       });
@@ -1077,10 +1193,12 @@ export default function TransaksiPage() {
       await fetchData(1); // Reset to first page after successful operation
     } catch (err) {
       console.error("Failed to complete transaction:", err);
+      // Error: keep dialog open and show error message
       toast.error("Gagal Menyelesaikan Transaksi", {
         description:
           err.message || "Terjadi kesalahan saat menyelesaikan transaksi",
       });
+      // Dialog stays open so user can retry or fix the issue
     } finally {
       setIsCompletingTransaction(false);
     }
@@ -1124,6 +1242,7 @@ export default function TransaksiPage() {
             totalPages={totalPages}
             onPageChange={handlePageChange}
             showInfo={true}
+            isLoading={isLoading}
           />
         </div>
       </div>

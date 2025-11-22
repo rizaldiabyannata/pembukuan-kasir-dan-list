@@ -18,6 +18,22 @@ jest.mock("../prisma.js", () => ({
   },
 }));
 
+// Mock middleware.js to avoid Next.js imports
+jest.mock("../middleware.js", () => ({
+  permissions: {
+    canViewDashboard: jest.fn(),
+    canViewTransactions: jest.fn(),
+    canViewExpenses: jest.fn(),
+    canViewFleet: jest.fn(),
+    canViewDrivers: jest.fn(),
+    canViewPackages: jest.fn(),
+    canViewStaff: jest.fn(),
+    canViewReports: jest.fn(),
+    canViewUsers: jest.fn(),
+    canViewAuditLogs: jest.fn(),
+  },
+}));
+
 import {
   ROUTE_RULES,
   isPublicRoute,

@@ -20,14 +20,18 @@ export function useAuthFetch() {
 
         // Handle unauthorized access
         if (res.status === 401 || res.status === 403) {
-          console.log("⛔ Unauthorized access, redirecting to login...");
+          if (process.env.NODE_ENV !== "production") {
+            console.log("⛔ Unauthorized access, redirecting to login...");
+          }
           router.push("/");
           return null;
         }
 
         return res;
       } catch (error) {
-        console.error("❌ Fetch error:", error);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("❌ Fetch error:", error);
+        }
         throw error;
       }
     },
@@ -50,14 +54,18 @@ export function withAuthRedirect(router) {
       });
 
       if (res.status === 401 || res.status === 403) {
-        console.log("⛔ Unauthorized access, redirecting to login...");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("⛔ Unauthorized access, redirecting to login...");
+        }
         router.push("/");
         return null;
       }
 
       return res;
     } catch (error) {
-      console.error("❌ Fetch error:", error);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("❌ Fetch error:", error);
+      }
       throw error;
     }
   };

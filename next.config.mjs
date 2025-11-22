@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
-  reactCompiler: true,
+  // Disable React Compiler for now due to memoization warnings
+  // Can be re-enabled once hooks are optimized for the compiler
+  reactCompiler: false,
   output: "standalone",
   experimental: {
     serverActions: {

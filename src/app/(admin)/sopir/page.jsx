@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 import { useActionLoading } from "@/hooks/useActionLoading";
 import { CardSkeleton } from "@/components/ui/card-skeleton";
@@ -56,24 +57,40 @@ export default function SopirPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const method = editingDriver ? "PUT" : "POST";
-    const url = editingDriver
-      ? `/api/drivers/${editingDriver.id}`
-      : "/api/drivers";
+    try {
+      const method = editingDriver ? "PUT" : "POST";
+      const url = editingDriver
+        ? `/api/drivers/${editingDriver.id}`
+        : "/api/drivers";
 
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(formData),
-    });
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(formData),
+      });
 
-    if (response.ok) {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || errorData.message || "Gagal menyimpan sopir"
+        );
+      }
+
+      // Success: close dialog and refresh data
+      toast.success(
+        editingDriver ? "Sopir berhasil diupdate" : "Sopir berhasil ditambahkan"
+      );
       setIsDialogOpen(false);
       setEditingDriver(null);
       fetchDrivers(); // Refresh data
-    } else {
-      console.error("Failed to save driver");
+    } catch (err) {
+      console.error("Failed to save driver", err);
+      // Error: keep dialog open and show error message
+      toast.error("Gagal Menyimpan Sopir", {
+        description:
+          err.message || "Terjadi kesalahan saat menyimpan data sopir",
+      });
     }
   };
 

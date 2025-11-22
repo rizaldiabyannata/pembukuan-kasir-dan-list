@@ -14,6 +14,11 @@ import {
 import "@testing-library/jest-dom";
 import { PackageForm } from "../../components/packages/PackageForm";
 
+// Mock @/lib/utils cn function
+jest.mock("@/lib/utils", () => ({
+  cn: (...classes) => classes.filter(Boolean).join(" "),
+}));
+
 // Mock all UI components
 jest.mock("@/components/ui/form", () => {
   const React = require("react");

@@ -18,9 +18,11 @@ export function formatCurrency(amount) {
 // DEPRECATED: Use calculateTransactionFinancials from @/lib/accounting instead
 // This function is kept for backward compatibility but will be removed in future versions
 export function calculateFinancials(tx) {
-  console.warn(
-    "DEPRECATED: calculateFinancials() from utils.js is deprecated. Use calculateTransactionFinancials() from @/lib/accounting instead."
-  );
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      "DEPRECATED: calculateFinancials() from utils.js is deprecated. Use calculateTransactionFinancials() from @/lib/accounting instead."
+    );
+  }
 
   // Import and re-export from accounting.js
   const { calculateTransactionFinancials } = require("./accounting");

@@ -13,8 +13,10 @@ export const BUCKET_NAME = process.env.MINIO_BUCKET || "my-bucket";
 
 /**
  * Test MinIO connection on initialization
+ * Note: This is NOT called automatically during module load to avoid blocking builds.
+ * Call this manually when you need to test the connection.
  */
-async function testMinIOConnection() {
+export async function testMinIOConnection() {
   try {
     // Test connection by checking if we can list buckets
     const buckets = await minioClient.listBuckets();
@@ -36,10 +38,8 @@ async function testMinIOConnection() {
   }
 }
 
-// Test connection on module load
-testMinIOConnection().catch((err) => {
-  console.error("MinIO initialization error:", err);
-});
+// DO NOT test connection on module load - it blocks the build process
+// Connection will be tested on first actual use
 
 /**
  * Ensure bucket exists, create if not, and set public read policy
@@ -49,12 +49,16 @@ export async function ensureBucket() {
     const exists = await minioClient.bucketExists(BUCKET_NAME);
     if (!exists) {
       await minioClient.makeBucket(BUCKET_NAME, "us-east-1");
-      console.log(`✅ Bucket created: ${BUCKET_NAME}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`✅ Bucket created: ${BUCKET_NAME}`);
+      }
 
       // Set bucket policy to allow public read
       await setBucketPublicRead();
     } else {
-      console.log(`✅ Bucket exists: ${BUCKET_NAME}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`✅ Bucket exists: ${BUCKET_NAME}`);
+      }
 
       // Check and set bucket policy if needed
       await checkAndSetBucketPolicy();
@@ -83,7 +87,9 @@ async function setBucketPublicRead() {
     };
 
     await minioClient.setBucketPolicy(BUCKET_NAME, JSON.stringify(policy));
-    console.log(`✅ Bucket ${BUCKET_NAME} set to public read`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`✅ Bucket ${BUCKET_NAME} set to public read`);
+    }
   } catch (error) {
     console.error(
       `❌ Error setting bucket policy for ${BUCKET_NAME}:`,
@@ -99,21 +105,29 @@ async function setBucketPublicRead() {
 async function checkAndSetBucketPolicy() {
   try {
     const currentPolicy = await minioClient.getBucketPolicy(BUCKET_NAME);
-    console.log(
-      `📋 Current bucket policy status: ${currentPolicy ? "Set" : "Not set"}`
-    );
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `📋 Current bucket policy status: ${currentPolicy ? "Set" : "Not set"}`
+      );
+    }
 
     if (!currentPolicy) {
-      console.log(`🔧 Setting public read policy for bucket ${BUCKET_NAME}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`🔧 Setting public read policy for bucket ${BUCKET_NAME}`);
+      }
       await setBucketPublicRead();
     } else {
-      console.log(`✅ Bucket ${BUCKET_NAME} already has policy configured`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`✅ Bucket ${BUCKET_NAME} already has policy configured`);
+      }
     }
   } catch (error) {
     if (error.code === "NoSuchBucketPolicy") {
-      console.log(
-        `🔧 No policy found, setting public read policy for bucket ${BUCKET_NAME}`
-      );
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          `🔧 No policy found, setting public read policy for bucket ${BUCKET_NAME}`
+        );
+      }
       await setBucketPublicRead();
     } else {
       console.error(

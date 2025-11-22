@@ -36,6 +36,16 @@ jest.mock("lucide-react", () => ({
   ChevronLeft: () => <span data-testid="chevron-left">←</span>,
   ChevronRight: () => <span data-testid="chevron-right">→</span>,
   MoreHorizontal: () => <span data-testid="more-horizontal">⋯</span>,
+  Loader2: () => <span data-testid="loader">⟳</span>,
+}));
+
+// Mock Spinner component
+jest.mock("@/components/ui/spinner", () => ({
+  Spinner: ({ size, className }) => (
+    <span data-testid="spinner" className={className}>
+      ⟳
+    </span>
+  ),
 }));
 
 // Mock utils

@@ -68,17 +68,21 @@ function getUserAgent(request) {
  * - Determines redirect destination based on user role and error type (7.1, 7.2, 7.3)
  * - Clears invalid session cookies when appropriate
  *
+ * Enhanced to handle selective cookie cleanup based on extraction results
+ *
  * @param {string} destination - Redirect destination path
  * @param {string} errorMessage - Error message to display (will be URL-encoded)
  * @param {NextRequest} request - Original request
- * @param {boolean} shouldClearCookie - Whether to clear session cookies
+ * @param {boolean} shouldClearCookie - Whether to clear all session cookies (legacy)
+ * @param {string[]} cookiesToClear - Specific cookies to clear (enhanced)
  * @returns {NextResponse} Redirect response with error parameter
  */
 function createRedirectWithError(
   destination,
   errorMessage,
   request,
-  shouldClearCookie = false
+  shouldClearCookie = false,
+  cookiesToClear = []
 ) {
   const url = request.nextUrl.clone();
   url.pathname = destination;
@@ -94,9 +98,15 @@ function createRedirectWithError(
   // Clear session cookies if needed (expired/invalid sessions)
   // This ensures users with invalid sessions get a clean slate
   if (shouldClearCookie) {
+    // Legacy behavior: clear all session cookies
     response.cookies.delete("session_admin");
     response.cookies.delete("session_operator");
     response.cookies.delete("session"); // Legacy cookie
+  } else if (cookiesToClear && cookiesToClear.length > 0) {
+    // Enhanced behavior: clear specific conflicting/invalid cookies
+    for (const cookieName of cookiesToClear) {
+      response.cookies.delete(cookieName);
+    }
   }
 
   return response;
@@ -147,42 +157,68 @@ async function handleProtectedRoute(request) {
   }
 
   // Access denied - log and redirect
-  const { user, reason, message, redirectTo, shouldClearCookie } = evaluation;
+  const {
+    user,
+    reason,
+    message,
+    redirectTo,
+    shouldClearCookie,
+    shouldClearCookies,
+  } = evaluation;
 
   // Log unauthorized access attempt to console
   logUnauthorizedAccess(user, pathname, reason, request);
 
-  // Redirect with error message
+  // Redirect with error message and cookie cleanup
   return createRedirectWithError(
     redirectTo || "/",
     message || "Akses ditolak",
     request,
-    shouldClearCookie
+    shouldClearCookie,
+    shouldClearCookies
   );
 }
 
 /**
  * Handle authenticated users accessing login page
  * Redirect them to their default landing page
+ * Enhanced to handle cookie cleanup
  *
  * @param {NextRequest} request - Next.js request object
  * @returns {Promise<NextResponse>} Response (redirect or allow)
  */
 async function handleLoginPageAccess(request) {
-  const token = extractSessionToken(request);
+  const extraction = extractSessionToken(request);
 
   // No token - allow access to login page
-  if (!token) {
+  if (!extraction.token) {
+    // Clear any invalid cookies before showing login page
+    if (
+      extraction.shouldClearCookies &&
+      extraction.shouldClearCookies.length > 0
+    ) {
+      const response = NextResponse.next();
+      for (const cookieName of extraction.shouldClearCookies) {
+        response.cookies.delete(cookieName);
+      }
+      return response;
+    }
     return NextResponse.next();
   }
 
   // Validate session to get user role
   const { validateSession } = await import("./src/lib/route-protection.js");
-  const sessionValidation = await validateSession(token);
+  const sessionValidation = await validateSession(extraction.token);
 
-  // Invalid session - allow access to login page
+  // Invalid session - allow access to login page and clear cookies
   if (!sessionValidation.valid) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // Clear invalid/conflicting cookies
+    const cookiesToClear = extraction.shouldClearCookies || [];
+    for (const cookieName of cookiesToClear) {
+      response.cookies.delete(cookieName);
+    }
+    return response;
   }
 
   // Valid session - redirect to default landing page
@@ -191,7 +227,19 @@ async function handleLoginPageAccess(request) {
 
   const url = request.nextUrl.clone();
   url.pathname = landingPage;
-  return NextResponse.redirect(url);
+  const response = NextResponse.redirect(url);
+
+  // Clear any conflicting cookies even on successful redirect
+  if (
+    extraction.shouldClearCookies &&
+    extraction.shouldClearCookies.length > 0
+  ) {
+    for (const cookieName of extraction.shouldClearCookies) {
+      response.cookies.delete(cookieName);
+    }
+  }
+
+  return response;
 }
 
 /**

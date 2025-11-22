@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AlertDialogProvider } from "@/components/ui/alert-dialog-provider";
+import { AccessibilityAnnouncer } from "@/components/ui/accessibility-announcer";
 import { initStorage } from "@/lib/file-storage";
 
 // Initialize storage on app startup
@@ -68,6 +69,7 @@ export default function RootLayout({ children }) {
         <AlertDialogProvider>
           {children}
           <Toaster />
+          <AccessibilityAnnouncer />
         </AlertDialogProvider>
       </body>
     </html>

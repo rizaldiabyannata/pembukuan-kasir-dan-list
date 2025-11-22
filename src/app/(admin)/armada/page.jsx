@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { useActionLoading } from "@/hooks/useActionLoading";
@@ -93,12 +94,30 @@ export default function ArmadaPage() {
         credentials: "include",
         body: JSON.stringify(formData),
       });
-      if (!res.ok) throw new Error("save failed");
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || errorData.message || "Gagal menyimpan armada"
+        );
+      }
+
+      // Success: close dialog and refresh data
+      toast.success(
+        editingArmada
+          ? "Armada berhasil diupdate"
+          : "Armada berhasil ditambahkan"
+      );
       setIsDialogOpen(false);
       setEditingArmada(null);
       await fetchArmadas();
     } catch (err) {
       console.error("Failed to save armada", err);
+      // Error: keep dialog open and show error message
+      toast.error("Gagal Menyimpan Armada", {
+        description:
+          err.message || "Terjadi kesalahan saat menyimpan data armada",
+      });
     }
   };
 

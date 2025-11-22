@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DateTimePicker, DatePicker } from "@/components/ui/datetime-picker";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 function formatCurrency(amount) {
   if (typeof amount !== "number" || isNaN(amount)) {
@@ -33,6 +34,24 @@ function formatCurrency(amount) {
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(amount);
+}
+
+// Helper function to format Date to local datetime string without timezone conversion
+function formatLocalDateTime(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+// Helper function to format Date to local date string without timezone conversion
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export default function TransaksiDialog({
@@ -73,6 +92,10 @@ export default function TransaksiDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <LoadingOverlay
+          isVisible={isSubmitting}
+          message="Menyimpan transaksi..."
+        />
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Edit Transaksi" : "Input Transaksi Baru"}
@@ -389,7 +412,7 @@ export default function TransaksiDialog({
                       }
                       setDate={(date) => {
                         if (date) {
-                          const dateString = date.toISOString().split("T")[0];
+                          const dateString = formatLocalDate(date);
                           handleDateChange("booking_date", dateString);
                         }
                       }}
@@ -405,12 +428,8 @@ export default function TransaksiDialog({
                       }
                       setDate={(date) => {
                         if (date) {
-                          const tzOffset = date.getTimezoneOffset() * 60000;
-                          const localISOTime = new Date(
-                            date.getTime() - tzOffset
-                          )
-                            .toISOString()
-                            .slice(0, 16);
+                          // Format date using local time components without timezone conversion
+                          const localISOTime = formatLocalDateTime(date);
                           handleDateChange("checkout_datetime", localISOTime);
                         }
                       }}
@@ -426,12 +445,8 @@ export default function TransaksiDialog({
                       }
                       setDate={(date) => {
                         if (date) {
-                          const tzOffset = date.getTimezoneOffset() * 60000;
-                          const localISOTime = new Date(
-                            date.getTime() - tzOffset
-                          )
-                            .toISOString()
-                            .slice(0, 16);
+                          // Format date using local time components without timezone conversion
+                          const localISOTime = formatLocalDateTime(date);
                           handleDateChange("checkin_datetime", localISOTime);
                         }
                       }}

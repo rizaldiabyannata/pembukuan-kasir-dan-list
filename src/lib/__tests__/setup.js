@@ -52,6 +52,11 @@ jest.mock("sonner", () => ({
   },
 }));
 
+// Mock @/lib/utils cn function
+jest.mock("@/lib/utils", () => ({
+  cn: (...classes) => classes.filter(Boolean).join(" "),
+}));
+
 // Global test utilities
 global.testUtils = {
   createMockPackage: (overrides = {}) => ({

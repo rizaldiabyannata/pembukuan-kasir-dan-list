@@ -90,11 +90,25 @@ async function handleCreateTransaction(request) {
     // Validate input data
     const validation = validateTransactionData(body, false);
     if (!validation.success) {
-      const errors = validation.error.errors.map((err) => ({
+      const errors = validation.error.issues.map((err) => ({
         field: err.path.join("."),
         message: err.message,
       }));
-      return errorResponse({ message: "Validasi gagal", errors }, 400);
+
+      // Create a user-friendly error message
+      const firstError = errors[0];
+      const errorMessage = firstError
+        ? `${firstError.message}`
+        : "Data transaksi tidak valid";
+
+      return errorResponse(
+        {
+          message: "Validasi gagal",
+          error: errorMessage,
+          errors,
+        },
+        400
+      );
     }
 
     const validatedData = validation.data;

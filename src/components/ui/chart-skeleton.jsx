@@ -17,7 +17,10 @@ function ChartSkeleton({
   ...props
 }) {
   return (
-    <Card className={cn(className)} {...props}>
+    <Card
+      className={cn("animate-in fade-in duration-200", className)}
+      {...props}
+    >
       <CardHeader>
         <Skeleton className="h-6 w-48 mb-2" aria-label="Memuat judul chart" />
         <Skeleton className="h-4 w-64" aria-label="Memuat deskripsi chart" />
@@ -38,7 +41,10 @@ function ChartSkeleton({
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
-                  className="border rounded-lg p-4"
+                  className="border rounded-lg p-4 animate-in fade-in duration-200"
+                  style={{
+                    animationDelay: `${i * 50}ms`,
+                  }}
                   aria-label={`Memuat statistik ${i + 1}`}
                 >
                   <Skeleton className="h-4 w-24 mb-2" />

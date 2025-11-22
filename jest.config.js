@@ -16,4 +16,6 @@ module.exports = {
   coverageReporters: ["text", "lcov", "html"],
   verbose: true,
   setupFilesAfterEnv: ["<rootDir>/src/lib/__tests__/setup.js"],
+  // Property-based testing configuration
+  testTimeout: 30000, // Increase timeout for property tests (100+ iterations)
 };

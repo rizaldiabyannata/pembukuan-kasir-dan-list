@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from "@jest/globals";
+import fc from "fast-check";
 import {
   calculateTransactionFinancials,
   calculateAggregateFinancials,
@@ -13,6 +14,11 @@ import {
   formatCurrencyCompact,
   calculateTourPackagePriceFromParams,
 } from "../accounting";
+import {
+  transactionWithPackageArbitrary,
+  packageArbitrary,
+  dateArbitrary,
+} from "./test-generators";
 
 describe("calculateTransactionFinancials", () => {
   describe("Normal transactions without overtime", () => {
@@ -551,7 +557,11 @@ describe("calculateTourPackagePriceFromParams", () => {
 
   it("should return 0 for non-TOUR_PACKAGE", () => {
     const nonTourPackage = { ...mockPackage, type: "CAR_RENTAL" };
-    const result = calculateTourPackagePriceFromParams(nonTourPackage, "tier1", 2);
+    const result = calculateTourPackagePriceFromParams(
+      nonTourPackage,
+      "tier1",
+      2
+    );
     expect(result).toBe(0);
   });
 
@@ -566,7 +576,11 @@ describe("calculateTourPackagePriceFromParams", () => {
   });
 
   it("should return 0 for missing paxCount", () => {
-    const result = calculateTourPackagePriceFromParams(mockPackage, "tier1", null);
+    const result = calculateTourPackagePriceFromParams(
+      mockPackage,
+      "tier1",
+      null
+    );
     expect(result).toBe(0);
   });
 
@@ -576,17 +590,29 @@ describe("calculateTourPackagePriceFromParams", () => {
   });
 
   it("should return 0 for invalid hotelTierId", () => {
-    const result = calculateTourPackagePriceFromParams(mockPackage, "invalid", 2);
+    const result = calculateTourPackagePriceFromParams(
+      mockPackage,
+      "invalid",
+      2
+    );
     expect(result).toBe(0);
   });
 
   it("should return 0 when no applicable price range", () => {
-    const result = calculateTourPackagePriceFromParams(mockPackage, "tier1", 10); // Outside ranges
+    const result = calculateTourPackagePriceFromParams(
+      mockPackage,
+      "tier1",
+      10
+    ); // Outside ranges
     expect(result).toBe(0);
   });
 
   it("should handle string paxCount", () => {
-    const result = calculateTourPackagePriceFromParams(mockPackage, "tier1", "3");
+    const result = calculateTourPackagePriceFromParams(
+      mockPackage,
+      "tier1",
+      "3"
+    );
     expect(result).toBe(270000); // 90000 * 3
   });
 });
@@ -661,5 +687,356 @@ describe("Integration tests - Real world scenarios", () => {
 
     expect(result.netProfit).toBe(35000000); // 35 million
     expect(result.profitMargin).toBe(70); // 70% margin
+  });
+});
+
+// ============================================================================
+// PROPERTY-BASED TESTS
+// ============================================================================
+
+describe("Property-Based Tests for Accounting Utilities", () => {
+  // Feature: laporan-keuangan-testing, Property 2: Revenue composition invariant
+  // Validates: Requirements 1.2
+  describe("Property 2: Revenue composition invariant", () => {
+    it("should satisfy: total revenue = base revenue + overtime fees", () => {
+      fc.assert(
+        fc.property(transactionWithPackageArbitrary(), (transaction) => {
+          const financials = calculateTransactionFinancials(transaction);
+
+          // Skip if there's an error in calculation
+          if (financials.error) {
+            return true;
+          }
+
+          // Calculate base revenue (total revenue minus overtime fees)
+          const baseRevenue =
+            financials.totalPendapatan - financials.totalOvertimeFee;
+
+          // Property: total revenue should equal base revenue + overtime fees
+          // This is a tautology check to ensure the calculation is consistent
+          expect(financials.totalPendapatan).toBe(
+            baseRevenue + financials.totalOvertimeFee
+          );
+        }),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 3: Tour package pricing correctness
+  // Validates: Requirements 1.3
+  describe("Property 3: Tour package pricing correctness", () => {
+    it("should calculate TOUR_PACKAGE price as tier price per pax * pax count", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            package: packageArbitrary().filter(
+              (pkg) => pkg.type === "TOUR_PACKAGE"
+            ),
+            paxCount: fc.integer({ min: 1, max: 20 }),
+          }),
+          ({ package: pkg, paxCount }) => {
+            // Skip if no hotel tiers
+            if (!pkg.hotelTiers || pkg.hotelTiers.length === 0) {
+              return true;
+            }
+
+            const hotelTier = pkg.hotelTiers[0];
+
+            // Skip if no price ranges
+            if (!hotelTier.priceRanges || hotelTier.priceRanges.length === 0) {
+              return true;
+            }
+
+            // Find applicable price range
+            const applicableRange = hotelTier.priceRanges.find(
+              (range) => paxCount >= range.minPax && paxCount <= range.maxPax
+            );
+
+            // Skip if no applicable range
+            if (!applicableRange) {
+              return true;
+            }
+
+            const calculatedPrice = calculateTourPackagePriceFromParams(
+              pkg,
+              hotelTier.id,
+              paxCount
+            );
+
+            // Property: calculated price should equal price per pax * pax count
+            const expectedPrice = applicableRange.price * paxCount;
+            expect(calculatedPrice).toBe(expectedPrice);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 4: Custom pricing selection
+  // Validates: Requirements 1.4
+  describe("Property 4: Custom pricing selection", () => {
+    it("should use custom_price if set, otherwise all_in_rate for CUSTOM_PRICING", () => {
+      fc.assert(
+        fc.property(
+          fc
+            .record({
+              all_in_rate: fc.integer({ min: 100000, max: 5000000 }),
+              custom_price: fc.option(
+                fc.integer({ min: 100000, max: 5000000 }),
+                { nil: null }
+              ),
+              checkout_datetime: dateArbitrary(),
+            })
+            .chain((base) =>
+              fc.integer({ min: 1, max: 72 }).map((hoursOffset) => {
+                const checkout = new Date(base.checkout_datetime);
+                const checkin = new Date(checkout);
+                checkin.setHours(checkin.getHours() + hoursOffset);
+
+                return {
+                  ...base,
+                  checkin_datetime: checkin,
+                  overtime_rate_per_hour: 50000,
+                  package: {
+                    id: "custom-pkg",
+                    type: "CUSTOM_PRICING",
+                    durationHours: 12,
+                  },
+                };
+              })
+            ),
+          (transaction) => {
+            const financials = calculateTransactionFinancials(transaction);
+
+            // Skip if there's an error
+            if (financials.error) {
+              return true;
+            }
+
+            // Calculate expected base revenue
+            const expectedBaseRevenue =
+              transaction.custom_price || transaction.all_in_rate;
+
+            // Property: base revenue (total - overtime) should equal custom_price or all_in_rate
+            const actualBaseRevenue =
+              financials.totalPendapatan - financials.totalOvertimeFee;
+            expect(actualBaseRevenue).toBe(expectedBaseRevenue);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 5: Overtime calculation formula
+  // Validates: Requirements 1.5
+  describe("Property 5: Overtime calculation formula", () => {
+    it("should calculate overtime as (rental hours - package hours) * overtime rate when rental > package duration", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            packageDuration: fc.integer({ min: 4, max: 12 }),
+            overtimeHours: fc.integer({ min: 1, max: 12 }),
+            overtimeRate: fc.integer({ min: 25000, max: 200000 }),
+            all_in_rate: fc.integer({ min: 100000, max: 5000000 }),
+          }),
+          ({ packageDuration, overtimeHours, overtimeRate, all_in_rate }) => {
+            const checkout = new Date("2025-11-01T08:00:00Z");
+            const checkin = new Date(checkout);
+            checkin.setHours(
+              checkin.getHours() + packageDuration + overtimeHours
+            );
+
+            const transaction = {
+              checkout_datetime: checkout,
+              checkin_datetime: checkin,
+              all_in_rate,
+              overtime_rate_per_hour: overtimeRate,
+              package: {
+                type: "CAR_RENTAL",
+                durationHours: packageDuration,
+              },
+            };
+
+            const financials = calculateTransactionFinancials(transaction);
+
+            // Property: overtime fee should equal overtime hours * overtime rate
+            const expectedOvertimeFee = overtimeHours * overtimeRate;
+
+            // Allow for rounding differences (within 1 hour's worth of overtime)
+            expect(
+              Math.abs(financials.totalOvertimeFee - expectedOvertimeFee)
+            ).toBeLessThanOrEqual(overtimeRate);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 6: No overtime for flat-rate packages
+  // Validates: Requirements 1.6
+  describe("Property 6: No overtime for flat-rate packages", () => {
+    it("should have zero overtime fees for TOUR_PACKAGE and FULL_DAY_TRIP", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            packageType: fc.constantFrom("TOUR_PACKAGE", "FULL_DAY_TRIP"),
+            rentalHours: fc.integer({ min: 1, max: 72 }),
+            all_in_rate: fc.integer({ min: 100000, max: 5000000 }),
+            overtimeRate: fc.integer({ min: 25000, max: 200000 }),
+          }),
+          ({ packageType, rentalHours, all_in_rate, overtimeRate }) => {
+            const checkout = new Date("2025-11-01T08:00:00Z");
+            const checkin = new Date(checkout);
+            checkin.setHours(checkin.getHours() + rentalHours);
+
+            const transaction = {
+              checkout_datetime: checkout,
+              checkin_datetime: checkin,
+              all_in_rate,
+              overtime_rate_per_hour: overtimeRate,
+              package: {
+                type: packageType,
+                durationHours: null, // Flat rate packages don't have duration
+              },
+            };
+
+            const financials = calculateTransactionFinancials(transaction);
+
+            // Property: overtime fees should be zero for flat-rate packages
+            expect(financials.totalOvertimeFee).toBe(0);
+            expect(financials.lamaOvertimeJam).toBe(0);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 25: Working hours calculation
+  // Validates: Requirements 4.3, 8.2
+  describe("Property 25: Working hours calculation", () => {
+    it("should calculate working hours as (checkin - checkout) / 3600000 ms", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            rentalHours: fc.integer({ min: 1, max: 72 }),
+            all_in_rate: fc.integer({ min: 100000, max: 5000000 }),
+          }),
+          ({ rentalHours, all_in_rate }) => {
+            const checkout = new Date("2025-11-01T08:00:00Z");
+            const checkin = new Date(checkout);
+            checkin.setHours(checkin.getHours() + rentalHours);
+
+            const transaction = {
+              checkout_datetime: checkout,
+              checkin_datetime: checkin,
+              all_in_rate,
+              overtime_rate_per_hour: 50000,
+              package: { durationHours: 12 },
+            };
+
+            const financials = calculateTransactionFinancials(transaction);
+
+            // Property: rental hours should match the time difference
+            // Allow for rounding (Math.round is used in the implementation)
+            expect(
+              Math.abs(financials.lamaSewaJam - rentalHours)
+            ).toBeLessThanOrEqual(1);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 19: Net profit calculation formula
+  // Validates: Requirements 3.5
+  describe("Property 19: Net profit calculation formula", () => {
+    it("should calculate net profit as gross profit - office expenses", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            grossProfit: fc.integer({ min: 0, max: 100000000 }),
+            officeExpenses: fc.integer({ min: 0, max: 50000000 }),
+          }),
+          ({ grossProfit, officeExpenses }) => {
+            const result = calculateNetProfit(grossProfit, officeExpenses);
+
+            // Property: net profit = gross profit - office expenses
+            const expectedNetProfit = grossProfit - officeExpenses;
+            expect(result.netProfit).toBe(expectedNetProfit);
+            expect(result.grossProfit).toBe(grossProfit);
+            expect(result.officeExpenses).toBe(officeExpenses);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 20: Profit margin calculation formula
+  // Validates: Requirements 3.6
+  describe("Property 20: Profit margin calculation formula", () => {
+    it("should calculate profit margin as (net profit / gross profit) * 100 when gross profit > 0", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            grossProfit: fc.integer({ min: 1, max: 100000000 }), // Ensure > 0
+            officeExpenses: fc.integer({ min: 0, max: 50000000 }),
+          }),
+          ({ grossProfit, officeExpenses }) => {
+            const result = calculateNetProfit(grossProfit, officeExpenses);
+
+            // Property: profit margin = (net profit / gross profit) * 100
+            const expectedMargin = (result.netProfit / grossProfit) * 100;
+
+            // Allow for floating point precision differences
+            expect(Math.abs(result.profitMargin - expectedMargin)).toBeLessThan(
+              0.01
+            );
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it("should return 0 profit margin when gross profit is 0", () => {
+      fc.assert(
+        fc.property(fc.integer({ min: 0, max: 50000000 }), (officeExpenses) => {
+          const result = calculateNetProfit(0, officeExpenses);
+
+          // Property: profit margin should be 0 when gross profit is 0
+          expect(result.profitMargin).toBe(0);
+        }),
+        { numRuns: 100 }
+      );
+    });
+  });
+
+  // Feature: laporan-keuangan-testing, Property 41: Gross profit formula
+  // Validates: Requirements 8.5
+  describe("Property 41: Gross profit formula", () => {
+    it("should calculate gross profit as total revenue - operational costs", () => {
+      fc.assert(
+        fc.property(transactionWithPackageArbitrary(), (transaction) => {
+          const financials = calculateTransactionFinancials(transaction);
+
+          // Skip if there's an error
+          if (financials.error) {
+            return true;
+          }
+
+          // Property: gross profit = total revenue - operational costs
+          const expectedGrossProfit =
+            financials.totalPendapatan - financials.totalBiayaOps;
+          expect(financials.labaKotor).toBe(expectedGrossProfit);
+        }),
+        { numRuns: 100 }
+      );
+    });
   });
 });

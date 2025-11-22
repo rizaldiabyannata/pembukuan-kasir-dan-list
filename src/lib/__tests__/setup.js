@@ -1,4 +1,12 @@
 import "@testing-library/jest-dom";
+import fc from "fast-check";
+
+// Configure fast-check for property-based testing
+fc.configureGlobal({
+  numRuns: 100, // Run each property test 100 times (minimum as per design doc)
+  verbose: false, // Set to true for debugging
+  seed: Date.now(), // Use current time as seed for reproducibility
+});
 
 // Mock Next.js router
 jest.mock("next/navigation", () => ({

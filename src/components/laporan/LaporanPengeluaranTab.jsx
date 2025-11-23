@@ -95,9 +95,21 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
 
   // Function to export data to Excel
   const exportToExcel = async () => {
+    // Validate data before export
     if (!data || !data.data) {
+      console.warn("Export warning: No expense data available");
       await showAlert({
         message: "Tidak ada data untuk diekspor",
+        type: "warning",
+        title: "Data Kosong",
+      });
+      return;
+    }
+
+    if (data.data.length === 0) {
+      console.warn("Export warning: Empty expense data array");
+      await showAlert({
+        message: "Tidak ada data pengeluaran pada periode yang dipilih",
         type: "warning",
         title: "Data Kosong",
       });
@@ -119,15 +131,20 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
       await exportExpenseReport(data, reportDateRange);
 
       // Show success message
+      console.log("Export successful: Expense report exported");
       await showAlert({
         message: "File Excel berhasil diekspor dengan multiple sheet",
         type: "success",
         title: "Export Berhasil",
       });
     } catch (error) {
-      console.error("Error exporting to Excel:", error);
+      console.error("Export failed:", error);
+
+      // Show user-friendly error message
+      const errorMessage =
+        error.message || "Gagal mengekspor file Excel. Silakan coba lagi.";
       await showAlert({
-        message: "Gagal mengekspor file Excel. Silakan coba lagi.",
+        message: errorMessage,
         type: "error",
         title: "Export Gagal",
       });

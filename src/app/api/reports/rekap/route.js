@@ -42,7 +42,11 @@ async function handleGetRekap(request) {
 
     expenses.forEach((expense) => {
       // Validate expense data
-      if (!expense.category || typeof expense.amount !== 'number' || isNaN(expense.amount)) {
+      if (
+        !expense.category ||
+        typeof expense.amount !== "number" ||
+        isNaN(expense.amount)
+      ) {
         console.warn(`Invalid expense data:`, expense);
         return; // Skip invalid expenses
       }
@@ -56,7 +60,21 @@ async function handleGetRekap(request) {
         return; // Skip expenses with invalid dates
       }
 
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      // Validate month calculation - ensure proper formatting
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // 1-12
+
+      // Additional validation for month range
+      if (month < 1 || month > 12) {
+        console.warn(
+          `Invalid month calculated for expense:`,
+          expense,
+          `month: ${month}`
+        );
+        return; // Skip expenses with invalid month calculations
+      }
+
+      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 
       if (!rekapByCategory[category]) {
         rekapByCategory[category] = {};
@@ -104,7 +122,9 @@ async function handleGetRekap(request) {
     );
 
     // Calculate summary with validation
-    const validExpenses = expenses.filter(e => typeof e.amount === 'number' && !isNaN(e.amount));
+    const validExpenses = expenses.filter(
+      (e) => typeof e.amount === "number" && !isNaN(e.amount)
+    );
     const totalExpenses = validExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     return successResponse({

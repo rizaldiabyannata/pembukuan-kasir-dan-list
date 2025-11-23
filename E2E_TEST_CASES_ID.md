@@ -50,8 +50,8 @@
 
 **Data Uji**:
 
-- Email: admin@example.com
-- Password: admin123
+- Email: admin@rental.com
+- Password: password123
 
 ---
 
@@ -78,8 +78,8 @@
 
 **Data Uji**:
 
-- Email: operator@example.com
-- Password: operator123
+- Email: operator@rental.com
+- Password: password123
 
 ---
 

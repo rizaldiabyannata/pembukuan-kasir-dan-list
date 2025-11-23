@@ -10,9 +10,26 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TrendingUp, Users, Clock, DollarSign, Loader2 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 export function DriverPerformanceChart({ data, loading, period }) {
   console.log("DriverPerformanceChart - data:", data);
@@ -25,7 +42,7 @@ export function DriverPerformanceChart({ data, loading, period }) {
   React.useEffect(() => {
     // Auto-select all drivers if none selected
     if (data?.driverPerformance && selectedDrivers.length === 0) {
-      setSelectedDrivers(data.driverPerformance.map(d => d.driverId));
+      setSelectedDrivers(data.driverPerformance.map((d) => d.driverId));
     }
   }, [data, selectedDrivers.length]);
 
@@ -54,7 +71,9 @@ export function DriverPerformanceChart({ data, loading, period }) {
             <Users className="h-5 w-5 text-primary" />
             Performa Sopir
           </CardTitle>
-          <CardDescription>Tidak ada data performa sopir yang tersedia</CardDescription>
+          <CardDescription>
+            Tidak ada data performa sopir yang tersedia
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[400px] flex items-center justify-center text-muted-foreground">
@@ -78,13 +97,16 @@ export function DriverPerformanceChart({ data, loading, period }) {
   };
 
   // Filter data based on selected drivers
-  const filteredData = data.driverPerformance.filter(driver =>
+  const filteredData = data.driverPerformance.filter((driver) =>
     selectedDrivers.includes(driver.driverId)
   );
 
   // Prepare chart data based on selected metric
-  const chartData = filteredData.map(driver => ({
-    name: driver.driverName.length > 15 ? driver.driverName.substring(0, 15) + '...' : driver.driverName,
+  const chartData = filteredData.map((driver) => ({
+    name:
+      driver.driverName.length > 15
+        ? driver.driverName.substring(0, 15) + "..."
+        : driver.driverName,
     fullName: driver.driverName,
     tripCount: driver.tripCount,
     onTimeRate: Math.round(driver.onTimeRate),
@@ -93,7 +115,7 @@ export function DriverPerformanceChart({ data, loading, period }) {
 
   // Sort by selected metric
   chartData.sort((a, b) => {
-    if (selectedMetric === 'onTimeRate') {
+    if (selectedMetric === "onTimeRate") {
       return b[selectedMetric] - a[selectedMetric];
     }
     return b[selectedMetric] - a[selectedMetric];
@@ -101,40 +123,54 @@ export function DriverPerformanceChart({ data, loading, period }) {
 
   const getMetricLabel = (metric) => {
     switch (metric) {
-      case 'tripCount': return 'Jumlah Perjalanan';
-      case 'onTimeRate': return 'Tepat Waktu (%)';
-      case 'totalIncome': return 'Pendapatan Total';
-      default: return metric;
+      case "tripCount":
+        return "Jumlah Perjalanan";
+      case "onTimeRate":
+        return "Tepat Waktu (%)";
+      case "totalIncome":
+        return "Pendapatan Total";
+      default:
+        return metric;
     }
   };
 
   const getMetricIcon = (metric) => {
     switch (metric) {
-      case 'tripCount': return <TrendingUp className="h-4 w-4" />;
-      case 'onTimeRate': return <Clock className="h-4 w-4" />;
-      case 'totalIncome': return <DollarSign className="h-4 w-4" />;
-      default: return <TrendingUp className="h-4 w-4" />;
+      case "tripCount":
+        return <TrendingUp className="h-4 w-4" />;
+      case "onTimeRate":
+        return <Clock className="h-4 w-4" />;
+      case "totalIncome":
+        return <DollarSign className="h-4 w-4" />;
+      default:
+        return <TrendingUp className="h-4 w-4" />;
     }
   };
 
   const getMetricColor = (metric) => {
     switch (metric) {
-      case 'tripCount': return '#3b82f6'; // blue
-      case 'onTimeRate': return '#10b981'; // green
-      case 'totalIncome': return '#f59e0b'; // amber
-      default: return '#3b82f6';
+      case "tripCount":
+        return "#3b82f6"; // blue
+      case "onTimeRate":
+        return "#10b981"; // green
+      case "totalIncome":
+        return "#f59e0b"; // amber
+      default:
+        return "#3b82f6";
     }
   };
 
   // Calculate summary stats
   const totalTrips = filteredData.reduce((sum, d) => sum + d.tripCount, 0);
-  const avgOnTimeRate = filteredData.length > 0
-    ? filteredData.reduce((sum, d) => sum + d.onTimeRate, 0) / filteredData.length
-    : 0;
+  const avgOnTimeRate =
+    filteredData.length > 0
+      ? filteredData.reduce((sum, d) => sum + d.onTimeRate, 0) /
+        filteredData.length
+      : 0;
   const totalIncome = filteredData.reduce((sum, d) => sum + d.totalIncome, 0);
 
-  const topPerformer = filteredData.reduce((max, driver) =>
-    driver.tripCount > max.tripCount ? driver : max,
+  const topPerformer = filteredData.reduce(
+    (max, driver) => (driver.tripCount > max.tripCount ? driver : max),
     filteredData[0] || {}
   );
 
@@ -213,7 +249,7 @@ export function DriverPerformanceChart({ data, loading, period }) {
                 />
                 <Bar
                   dataKey={selectedMetric}
-                  fill="hsl(var(--primary))"
+                  fill={getMetricColor(selectedMetric)}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={50}
                 />
@@ -265,9 +301,7 @@ export function DriverPerformanceChart({ data, loading, period }) {
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Rata-rata{" "}
-                {formatCurrency(
-                  totalIncome / Math.max(filteredData.length, 1)
-                )}{" "}
+                {formatCurrency(totalIncome / Math.max(filteredData.length, 1))}{" "}
                 per sopir
               </p>
             </div>
@@ -321,12 +355,14 @@ export function DriverPerformanceChart({ data, loading, period }) {
                 {avgOnTimeRate >= 90
                   ? "Baik"
                   : avgOnTimeRate >= 75
-                  ? "Cukup"
-                  : "Perlu Perbaikan"}{" "}
+                    ? "Cukup"
+                    : "Perlu Perbaikan"}{" "}
                 ({formatPercentage(avgOnTimeRate)})
               </p>
               <p>
-                <span className="font-medium text-foreground">Rekomendasi:</span>{" "}
+                <span className="font-medium text-foreground">
+                  Rekomendasi:
+                </span>{" "}
                 Fokus pada sopir dengan performa di bawah rata-rata untuk
                 meningkatkan efisiensi operasional.
               </p>

@@ -50,7 +50,20 @@ export default function LaporanRekapTab({ startDate, endDate }) {
   }, [startDate, endDate, fetchRekapData]);
 
   const handleDownloadAll = async () => {
-    if (!rekapData) return;
+    // Validate data before export
+    if (!rekapData) {
+      console.warn("Export warning: No rekap data available");
+      alert(
+        "Tidak ada data untuk diekspor. Silakan pilih periode yang berbeda."
+      );
+      return;
+    }
+
+    if (!rekapData.rekap || rekapData.rekap.length === 0) {
+      console.warn("Export warning: Empty rekap data");
+      alert("Tidak ada data rekap pada periode yang dipilih.");
+      return;
+    }
 
     setIsExporting(true);
     try {
@@ -60,8 +73,16 @@ export default function LaporanRekapTab({ startDate, endDate }) {
       };
 
       await exportRekapReport(rekapData, reportDateRange);
+
+      // Show success message
+      console.log("Export successful: Rekap report exported");
     } catch (error) {
       console.error("Export failed:", error);
+
+      // Show user-friendly error message
+      const errorMessage =
+        error.message || "Gagal mengekspor laporan. Silakan coba lagi.";
+      alert(`Gagal mengekspor laporan rekap: ${errorMessage}`);
     } finally {
       setIsExporting(false);
     }

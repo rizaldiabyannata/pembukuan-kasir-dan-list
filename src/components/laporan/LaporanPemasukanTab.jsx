@@ -98,8 +98,21 @@ export default function LaporanPemasukanTab({
   };
 
   const handleExport = async () => {
+    // Validate data before export
     if (!filteredData) {
-      console.error("No data available for export");
+      console.error("Export error: No data available for export");
+      alert(
+        "Tidak ada data untuk diekspor. Silakan pilih periode yang berbeda."
+      );
+      return;
+    }
+
+    if (
+      !filteredData.incomeByPackage ||
+      filteredData.incomeByPackage.length === 0
+    ) {
+      console.warn("Export warning: No income data in selected period");
+      alert("Tidak ada data pemasukan pada periode yang dipilih.");
       return;
     }
 
@@ -122,9 +135,16 @@ export default function LaporanPemasukanTab({
           : {};
 
       await exportIncomeReport(filteredData, reportDateRange, filters);
+
+      // Show success message
+      console.log("Export successful: Income report exported");
     } catch (error) {
       console.error("Export failed:", error);
-      // TODO: Show error toast
+
+      // Show user-friendly error message
+      const errorMessage =
+        error.message || "Gagal mengekspor laporan. Silakan coba lagi.";
+      alert(`Gagal mengekspor laporan pemasukan: ${errorMessage}`);
     } finally {
       setIsExporting(false);
     }

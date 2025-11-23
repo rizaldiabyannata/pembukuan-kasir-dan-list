@@ -75,7 +75,7 @@ async function handleGetExpenseReport(request) {
       where.category = category;
     }
 
-    // Get all expenses with filters
+    // Get all expenses with filters - ensure all relations are included
     const expenses = await prisma.expense.findMany({
       where,
       include: {
@@ -101,6 +101,26 @@ async function handleGetExpenseReport(request) {
         date: "desc",
       },
     });
+
+    // Validate data before processing
+    const { validateExpenseForExport } = await import("@/lib/excel-export");
+    const validationWarnings = [];
+
+    expenses.forEach((expense, index) => {
+      const validation = validateExpenseForExport(expense);
+      if (!validation.isValid) {
+        validationWarnings.push({
+          expenseId: expense.id,
+          index,
+          warnings: validation.warnings,
+        });
+      }
+    });
+
+    // Log validation warnings if any
+    if (validationWarnings.length > 0) {
+      console.warn("Expense data validation warnings:", validationWarnings);
+    }
 
     // Group expenses based on groupBy parameter
     let groupedData = {};
@@ -197,7 +217,23 @@ async function handleGetExpenseReport(request) {
     });
   } catch (error) {
     console.error("Error generating expense report:", error);
-    return errorResponse("Gagal membuat laporan pengeluaran", 500);
+
+    // Provide more specific error messages
+    if (error.code === "P2025") {
+      return errorResponse("Data tidak ditemukan", 404);
+    }
+
+    if (error.name === "PrismaClientKnownRequestError") {
+      return errorResponse(
+        "Kesalahan database saat mengambil data pengeluaran",
+        500
+      );
+    }
+
+    return errorResponse(
+      "Gagal membuat laporan pengeluaran. Silakan coba lagi atau hubungi administrator.",
+      500
+    );
   }
 }
 

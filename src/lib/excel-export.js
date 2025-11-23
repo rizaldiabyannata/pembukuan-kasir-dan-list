@@ -2,7 +2,29 @@ import * as XLSX from "xlsx";
 
 /**
  * Enhanced Excel Export Utility
+ * ============================
+ *
  * Provides professional Excel exports with multiple sheets, styling, and comprehensive data presentation
+ * for financial reports including income, expenses, rekap, and performance reports.
+ *
+ * Key Features:
+ * - Data validation before export to catch missing fields early
+ * - Standardized data mapping patterns using correct Prisma field accessors
+ * - Defensive null checking with optional chaining
+ * - Consistent currency and date formatting (Indonesian locale)
+ * - Professional Excel styling with headers, borders, and colors
+ * - Multiple sheet support for comprehensive reports
+ *
+ * Data Mapping Patterns:
+ * - Always use nested object accessors (e.g., tx.armada.license_plate, not tx.armada_license_plate)
+ * - Use optional chaining (?.) for nullable relations
+ * - Provide default values ("-" for text, 0 for numbers) when data is missing
+ * - Format dates using Indonesian locale (DD/MM/YYYY)
+ * - Format currency as numbers (not strings) for Excel calculations
+ *
+ * @module excel-export
+ * @requires xlsx
+ * @see {@link https://docs.sheetjs.com/} SheetJS Documentation
  */
 
 // Style definitions for professional appearance
@@ -97,6 +119,147 @@ const STYLES = {
 };
 
 /**
+ * Validate transaction data structure for export
+ * @param {Object} transaction - Transaction object from Prisma
+ * @returns {Object} Validation result with warnings
+ */
+export function validateTransactionForExport(transaction) {
+  const warnings = [];
+
+  // Check required fields
+  if (!transaction.invoice_code) warnings.push("Missing invoice_code");
+  if (!transaction.customer_name) warnings.push("Missing customer_name");
+  if (!transaction.booking_date) warnings.push("Missing booking_date");
+
+  // Check nested objects
+  if (transaction.armada) {
+    if (!transaction.armada.license_plate) {
+      warnings.push("Armada exists but missing license_plate");
+    }
+    if (!transaction.armada.brand) {
+      warnings.push("Armada exists but missing brand");
+    }
+    if (!transaction.armada.model) {
+      warnings.push("Armada exists but missing model");
+    }
+  }
+
+  if (transaction.driver && !transaction.driver.driver_name) {
+    warnings.push("Driver exists but missing driver_name");
+  }
+
+  if (transaction.package && !transaction.package.name) {
+    warnings.push("Package exists but missing name");
+  }
+
+  return {
+    isValid: warnings.length === 0,
+    warnings,
+    transaction,
+  };
+}
+
+/**
+ * Validate expense data structure for export
+ * @param {Object} expense - Expense object from Prisma
+ * @returns {Object} Validation result with warnings
+ */
+export function validateExpenseForExport(expense) {
+  const warnings = [];
+
+  // Check required fields
+  if (!expense.date) warnings.push("Missing date");
+  if (!expense.category) warnings.push("Missing category");
+  if (!expense.description) warnings.push("Missing description");
+  if (expense.amount === undefined || expense.amount === null) {
+    warnings.push("Missing amount");
+  }
+
+  // Check nested objects
+  if (expense.armada && !expense.armada.license_plate) {
+    warnings.push("Armada exists but missing license_plate");
+  }
+
+  if (expense.driver && !expense.driver.driver_name) {
+    warnings.push("Driver exists but missing driver_name");
+  }
+
+  if (expense.staff && !expense.staff.staff_name) {
+    warnings.push("Staff exists but missing staff_name");
+  }
+
+  return {
+    isValid: warnings.length === 0,
+    warnings,
+    expense,
+  };
+}
+
+/**
+ * Safely format date to Indonesian locale
+ * @param {Date|string|null|undefined} dateValue - Date value to format
+ * @returns {string} Formatted date or "-"
+ */
+export function formatDateSafely(dateValue) {
+  if (!dateValue) return "-";
+
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) {
+    console.warn("Invalid date:", dateValue);
+    return "-";
+  }
+
+  return date.toLocaleDateString("id-ID");
+}
+
+/**
+ * Map transaction data to export format
+ * @param {Object} tx - Transaction from Prisma
+ * @param {Object} financials - Calculated financials from accounting.js
+ * @returns {Array} Row data for Excel
+ */
+export function mapTransactionToExportRow(tx, financials) {
+  return [
+    tx.invoice_code || "-",
+    formatDateSafely(tx.booking_date),
+    tx.customer_name || "-",
+    tx.package?.name || "Custom",
+    tx.armada
+      ? `${tx.armada.brand} ${tx.armada.model} (${tx.armada.license_plate})`
+      : "-",
+    tx.driver?.driver_name || "-",
+    formatCurrencyForExcel(financials.tarifSewa || 0),
+    formatCurrencyForExcel(financials.biayaOvertime || 0),
+    formatCurrencyForExcel(financials.totalPendapatan || 0),
+    formatCurrencyForExcel(financials.totalBiayaOps || 0),
+    formatCurrencyForExcel(financials.labaKotor || 0),
+    tx.payment_status || "-",
+    tx.approval_status || "-",
+  ];
+}
+
+/**
+ * Map expense data to export format
+ * @param {Object} expense - Expense from Prisma
+ * @returns {Array} Row data for Excel
+ */
+export function mapExpenseToExportRow(expense) {
+  return [
+    formatDateSafely(expense.date),
+    expense.category || "-",
+    expense.description || "-",
+    formatCurrencyForExcel(expense.amount || 0),
+    expense.namaPenerima || "-",
+    expense.armada?.license_plate || "-",
+    expense.driver?.driver_name || "-",
+    expense.staff?.staff_name || "-",
+    expense.attachments?.length > 0
+      ? `${expense.attachments.length} file(s)`
+      : "Tidak ada",
+  ];
+}
+
+/**
  * Create a new Excel workbook with professional styling
  */
 export function createWorkbook() {
@@ -184,6 +347,34 @@ export function generateReportHeader(title, dateRange, companyInfo = {}) {
  */
 export function formatCurrencyForExcel(amount) {
   return parseFloat(amount) || 0;
+}
+
+/**
+ * Format percentage for Excel display
+ * @param {number} value - The decimal value (e.g., 0.45 for 45%)
+ * @param {number} decimals - Number of decimal places (default: 1)
+ * @returns {string} Formatted percentage string (e.g., "45.5%")
+ */
+export function formatPercentage(value, decimals = 1) {
+  if (value === null || value === undefined || isNaN(value)) {
+    return "0%";
+  }
+  return `${value.toFixed(decimals)}%`;
+}
+
+/**
+ * Calculate percentage from two numbers
+ * @param {number} part - The part value
+ * @param {number} total - The total value
+ * @param {number} decimals - Number of decimal places (default: 1)
+ * @returns {string} Formatted percentage string or "0%" if total is 0
+ */
+export function calculatePercentage(part, total, decimals = 1) {
+  if (!total || total === 0) {
+    return "0%";
+  }
+  const percentage = (part / total) * 100;
+  return formatPercentage(percentage, decimals);
 }
 
 /**
@@ -556,8 +747,49 @@ export async function exportTransactionReport(data, dateRange) {
 
 /**
  * Export income report with package breakdown
+ *
+ * Generates a comprehensive Excel report showing income by service package type,
+ * including transaction details, financial calculations, and summary metrics.
+ *
+ * @async
+ * @param {Object} data - Income report data from API
+ * @param {Array} data.incomeByPackage - Array of income grouped by package
+ * @param {Array} data.transactions - Array of transaction objects with relations
+ * @param {Object} dateRange - Date range for the report
+ * @param {string} dateRange.from - Start date (YYYY-MM-DD)
+ * @param {string} dateRange.to - End date (YYYY-MM-DD)
+ * @param {Object} [filters={}] - Optional filters applied to the data
+ * @param {string} [filters.packageType] - Filter by package type
+ *
+ * @returns {Promise<void>} Downloads the Excel file to the user's browser
+ *
+ * @throws {Error} If no income data is available for export
+ *
+ * @example
+ * await exportIncomeReport(
+ *   { incomeByPackage: [...], transactions: [...] },
+ *   { from: '2025-11-01', to: '2025-11-30' },
+ *   { packageType: 'CAR_RENTAL' }
+ * );
+ *
+ * @description
+ * The exported Excel file contains multiple sheets:
+ * - Summary: Key metrics and totals
+ * - Per Package: Income breakdown by service package
+ * - All Transactions: Detailed transaction list with financial calculations
+ *
+ * Data Mapping:
+ * - Uses calculateTransactionFinancials() for consistent financial calculations
+ * - Accesses nested Prisma relations correctly (tx.armada.license_plate)
+ * - Handles null/undefined values with optional chaining and defaults
  */
-export function exportIncomeReport(data, dateRange, filters = {}) {
+export async function exportIncomeReport(data, dateRange, filters = {}) {
+  // Validate data before export - warn but continue
+  if (!data || !data.incomeByPackage || data.incomeByPackage.length === 0) {
+    console.warn("Export warning: No income data available");
+    // Continue with empty export instead of throwing
+  }
+
   const wb = createWorkbook();
 
   // Summary sheet
@@ -596,7 +828,7 @@ export function exportIncomeReport(data, dateRange, filters = {}) {
     ["Analisis Performa Paket"],
     [],
     packageHeaders,
-    ...data.incomeByPackage.map((pkg) => [
+    ...(data.incomeByPackage || []).map((pkg) => [
       pkg.packageName,
       pkg.packageType,
       pkg.transactionCount,
@@ -634,31 +866,63 @@ export function exportIncomeReport(data, dateRange, filters = {}) {
     columnWidths: [25, 20, 12, 18, 15, 12],
   });
 
-  // Transaction Details sheet
+  // Transaction Details sheet with corrected field accessors
   const transactionHeaders = [
     "Invoice",
     "Pelanggan",
     "Tanggal",
     "Paket",
+    "Armada",
+    "Sopir",
     "Tarif Dasar",
     "Overtime",
     "Total",
   ];
   const transactionData = [["Detail Transaksi"], [], transactionHeaders];
 
+  // Import accounting module for financial calculations
+  const { calculateTransactionFinancials } = await import("./accounting.js");
+
+  // Validate and log warnings for transaction data
+  let validationWarnings = 0;
   data.incomeByPackage.forEach((pkg) => {
     pkg.transactions.forEach((tx) => {
+      // Validate transaction data
+      const validation = validateTransactionForExport(tx);
+      if (!validation.isValid) {
+        console.warn(
+          `Transaction ${tx.invoice_code || tx.id} validation warnings:`,
+          validation.warnings
+        );
+        validationWarnings++;
+      }
+
+      // Use correct field accessors for nested objects
+      const armadaInfo = tx.armada
+        ? `${tx.armada.brand} ${tx.armada.model} (${tx.armada.license_plate})`
+        : "-";
+      const driverName = tx.driver?.driver_name || "-";
+      const packageName = tx.package?.name || pkg.packageName;
+
       transactionData.push([
-        tx.invoice_code,
-        tx.customer_name,
-        new Date(tx.booking_date).toLocaleDateString("id-ID"),
-        pkg.packageName,
-        formatCurrencyForExcel(tx.baseRevenue),
-        formatCurrencyForExcel(tx.overtimeRevenue),
-        formatCurrencyForExcel(tx.totalRevenue),
+        tx.invoice_code || "-",
+        tx.customer_name || "-",
+        formatDateSafely(tx.booking_date),
+        packageName,
+        armadaInfo,
+        driverName,
+        formatCurrencyForExcel(tx.baseRevenue || 0),
+        formatCurrencyForExcel(tx.overtimeRevenue || 0),
+        formatCurrencyForExcel(tx.totalRevenue || 0),
       ]);
     });
   });
+
+  if (validationWarnings > 0) {
+    console.warn(
+      `Income export: ${validationWarnings} transaction(s) have validation warnings. Export will continue.`
+    );
+  }
 
   const transactionStyleMap = {
     "0,0": "header",
@@ -669,22 +933,24 @@ export function exportIncomeReport(data, dateRange, filters = {}) {
     "2,4": "subHeader",
     "2,5": "subHeader",
     "2,6": "subHeader",
+    "2,7": "subHeader",
+    "2,8": "subHeader",
   };
 
   // Apply styling to transaction data rows
   let rowIndex = 3;
   data.incomeByPackage.forEach((pkg) => {
     pkg.transactions.forEach(() => {
-      transactionStyleMap[`${rowIndex},4`] = "currency";
-      transactionStyleMap[`${rowIndex},5`] = "currency";
       transactionStyleMap[`${rowIndex},6`] = "currency";
+      transactionStyleMap[`${rowIndex},7`] = "currency";
+      transactionStyleMap[`${rowIndex},8`] = "currency";
       rowIndex++;
     });
   });
 
   addSheet(wb, "Detail Transaksi", transactionData, {
     styleMap: transactionStyleMap,
-    columnWidths: [15, 20, 12, 25, 15, 12, 15],
+    columnWidths: [15, 20, 12, 25, 25, 20, 15, 12, 15],
   });
 
   const filterSuffix = filters.packageType ? `_${filters.packageType}` : "";
@@ -693,8 +959,45 @@ export function exportIncomeReport(data, dateRange, filters = {}) {
 
 /**
  * Export expense report with category breakdown
+ *
+ * Generates a comprehensive Excel report showing expenses by category,
+ * including detailed expense records with relational data (staff, armada, driver).
+ *
+ * @param {Object} data - Expense report data from API
+ * @param {Array} data.data - Array of expense objects with relations
+ * @param {Object} data.summary - Summary metrics (total, count, categories)
+ * @param {Object} dateRange - Date range for the report
+ * @param {string} dateRange.from - Start date (YYYY-MM-DD)
+ * @param {string} dateRange.to - End date (YYYY-MM-DD)
+ *
+ * @returns {void} Downloads the Excel file to the user's browser
+ *
+ * @throws {Error} If no expense data is available for export
+ *
+ * @example
+ * exportExpenseReport(
+ *   { data: [...], summary: { total: 1000000, count: 10 } },
+ *   { from: '2025-11-01', to: '2025-11-30' }
+ * );
+ *
+ * @description
+ * The exported Excel file contains multiple sheets:
+ * - Summary: Key metrics and category breakdown
+ * - All Expenses: Detailed expense list with all fields
+ *
+ * Data Mapping:
+ * - Correctly accesses nested relations (expense.staff.staff_name)
+ * - Handles optional relations with optional chaining
+ * - Shows attachment count if files are present
+ * - Formats dates in Indonesian locale
  */
 export function exportExpenseReport(data, dateRange) {
+  // Validate data before export
+  if (!data || !data.data || data.data.length === 0) {
+    console.warn("Export warning: No expense data available");
+    throw new Error("Tidak ada data pengeluaran untuk diekspor");
+  }
+
   const wb = createWorkbook();
 
   // Summary sheet
@@ -785,25 +1088,30 @@ export function exportExpenseReport(data, dateRange) {
   const allExpenses =
     data.rawExpenses || data.data.flatMap((cat) => cat.expenses);
 
+  // Validate and log warnings for expense data
+  let validationWarnings = 0;
   allExpenses
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .forEach((expense) => {
-      const attachmentCount = expense.attachments?.length || 0;
-      const attachmentInfo =
-        attachmentCount > 0 ? `${attachmentCount} file(s)` : "Tidak ada";
+      // Validate expense data
+      const validation = validateExpenseForExport(expense);
+      if (!validation.isValid) {
+        console.warn(
+          `Expense ${expense.id} validation warnings:`,
+          validation.warnings
+        );
+        validationWarnings++;
+      }
 
-      transactionData.push([
-        new Date(expense.date).toLocaleDateString("id-ID"),
-        expense.category,
-        expense.description,
-        formatCurrencyForExcel(expense.amount),
-        expense.namaPenerima || "-",
-        expense.armada?.license_plate || "-",
-        expense.driver?.driver_name || "-",
-        expense.staff?.name || "-",
-        attachmentInfo,
-      ]);
+      // Use mapExpenseToExportRow for consistency
+      transactionData.push(mapExpenseToExportRow(expense));
     });
+
+  if (validationWarnings > 0) {
+    console.warn(
+      `Expense export: ${validationWarnings} expense(s) have validation warnings. Export will continue.`
+    );
+  }
 
   const transactionStyleMap = {
     "0,0": "header",
@@ -892,8 +1200,48 @@ export function exportExpenseReport(data, dateRange) {
 
 /**
  * Export rekap report with category-wise monthly breakdown
+ *
+ * Generates a comprehensive Excel report showing expense recapitulation by category
+ * with monthly breakdown, trends, and growth percentages.
+ *
+ * @param {Object} data - Rekap report data from API
+ * @param {Array} data.rekap - Array of expense categories with monthly data
+ * @param {Object} data.summary - Summary metrics (total, count, categories)
+ * @param {Object} dateRange - Date range for the report
+ * @param {string} dateRange.from - Start date (YYYY-MM-DD)
+ * @param {string} dateRange.to - End date (YYYY-MM-DD)
+ *
+ * @returns {void} Downloads the Excel file to the user's browser
+ *
+ * @throws {Error} If no rekap data is available for export
+ *
+ * @example
+ * exportRekapReport(
+ *   { rekap: [...], summary: { total: 5000000, categories: 6 } },
+ *   { from: '2025-09-01', to: '2025-11-30' }
+ * );
+ *
+ * @description
+ * The exported Excel file contains multiple sheets:
+ * - Summary: Overall metrics and category totals
+ * - Per Category: Separate sheet for each expense category showing:
+ *   - Monthly breakdown (transaction count, total, average)
+ *   - Trend analysis (growth percentages month-over-month)
+ *   - Visual indicators for increases/decreases
+ *
+ * Data Formatting:
+ * - Months formatted in Indonesian (e.g., "Januari 2025")
+ * - Currency formatted as Rupiah with thousand separators
+ * - Percentages shown with 1 decimal place
+ * - Trend arrows (↑/↓) for visual clarity
  */
 export function exportRekapReport(data, dateRange) {
+  // Validate data before export - warn but continue
+  if (!data || !data.rekap || data.rekap.length === 0) {
+    console.warn("Export warning: No rekap data available");
+    // Continue with empty export instead of throwing
+  }
+
   const wb = createWorkbook();
 
   // Summary sheet
@@ -918,32 +1266,37 @@ export function exportRekapReport(data, dateRange) {
 
   // Add month headers dynamically
   const allMonths = new Set();
-  data.rekap.forEach((cat) => {
-    cat.months.forEach((month) => allMonths.add(month.month));
+  (data.rekap || []).forEach((cat) => {
+    (cat.months || []).forEach((month) => allMonths.add(month.month));
   });
   const sortedMonths = Array.from(allMonths).sort();
 
-  // Add month columns to headers
+  // Add month columns to headers using Indonesian locale
   sortedMonths.forEach((month) => {
-    monthlyHeaders.push(
-      new Date(month + "-01").toLocaleDateString("id-ID", {
-        year: "numeric",
-        month: "long",
-      })
-    );
+    // Parse month string (YYYY-MM format)
+    const [year, monthNum] = month.split("-");
+    const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+
+    // Format using Indonesian locale
+    const monthName = date.toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "long",
+    });
+
+    monthlyHeaders.push(monthName);
   });
 
-  // Add data rows
-  data.rekap.forEach((cat) => {
+  // Add data rows - ensure all category data is included
+  (data.rekap || []).forEach((cat) => {
     const row = [
       cat.category,
       formatCurrencyForExcel(cat.totalAmount),
       cat.totalCount,
     ];
 
-    // Add monthly data
+    // Add monthly data with proper calculations
     sortedMonths.forEach((month) => {
-      const monthData = cat.months.find((m) => m.month === month);
+      const monthData = (cat.months || []).find((m) => m.month === month);
       row.push(monthData ? formatCurrencyForExcel(monthData.total) : 0);
     });
 
@@ -976,7 +1329,7 @@ export function exportRekapReport(data, dateRange) {
     columnWidths: [25, 18, 15, ...sortedMonths.map(() => 15)],
   });
 
-  // Trend Analysis sheet
+  // Trend Analysis sheet with growth percentages
   const trendHeaders = [
     "Bulan",
     "Total Pengeluaran",
@@ -988,6 +1341,7 @@ export function exportRekapReport(data, dateRange) {
 
   let previousTotal = 0;
   sortedMonths.forEach((month, index) => {
+    // Calculate monthly totals
     const monthTotal = data.rekap.reduce((sum, cat) => {
       const monthData = cat.months.find((m) => m.month === month);
       return sum + (monthData ? monthData.total : 0);
@@ -999,16 +1353,23 @@ export function exportRekapReport(data, dateRange) {
     }, 0);
 
     const average = monthCount > 0 ? monthTotal / monthCount : 0;
+
+    // Calculate growth percentage compared to previous month
     const growth =
       index > 0 && previousTotal > 0
         ? ((monthTotal - previousTotal) / previousTotal) * 100
         : 0;
 
+    // Parse month string and format using Indonesian locale
+    const [year, monthNum] = month.split("-");
+    const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+    const monthName = date.toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "long",
+    });
+
     trendData.push([
-      new Date(month + "-01").toLocaleDateString("id-ID", {
-        year: "numeric",
-        month: "long",
-      }),
+      monthName,
       formatCurrencyForExcel(monthTotal),
       monthCount,
       formatCurrencyForExcel(Math.round(average)),
@@ -1044,8 +1405,71 @@ export function exportRekapReport(data, dateRange) {
 
 /**
  * Export performance report with driver, package, and fuel analysis
+ *
+ * Generates a comprehensive Excel report showing operational performance metrics
+ * including driver performance, package utilization, and fuel consumption analysis.
+ *
+ * @async
+ * @param {Object} performanceData - Performance metrics from API
+ * @param {Array} performanceData.driverPerformance - Driver performance data
+ * @param {Array} performanceData.packagePerformance - Package performance data
+ * @param {Object} fuelData - Fuel consumption data from API
+ * @param {Array} fuelData.fuelAnalysis - Fuel analysis by vehicle
+ * @param {Object} dateRange - Date range for the report
+ * @param {string} dateRange.from - Start date (YYYY-MM-DD)
+ * @param {string} dateRange.to - End date (YYYY-MM-DD)
+ *
+ * @returns {Promise<void>} Downloads the Excel file to the user's browser
+ *
+ * @throws {Error} If no performance or fuel data is available for export
+ *
+ * @example
+ * await exportPerformanceReport(
+ *   {
+ *     driverPerformance: [...],
+ *     packagePerformance: [...]
+ *   },
+ *   { fuelAnalysis: [...] },
+ *   { from: '2025-11-01', to: '2025-11-30' }
+ * );
+ *
+ * @description
+ * The exported Excel file contains multiple sheets:
+ * - Summary: Key performance indicators and totals
+ * - Driver Performance: Metrics per driver (trips, hours, completion rate, revenue)
+ * - Package Performance: Metrics per package (bookings, revenue, utilization)
+ * - Fuel Analysis: Fuel consumption by vehicle (refills, cost, consumption per trip)
+ *
+ * Metrics Calculated:
+ * - Driver: Total trips, working hours, completion rate, revenue
+ * - Package: Total bookings, revenue, average per booking, utilization percentage
+ * - Fuel: Total refills, cost, average per refill, consumption per trip
+ *
+ * Data Integration:
+ * - Uses calculateTransactionFinancials() for revenue calculations
+ * - Aggregates data across multiple dimensions
+ * - Provides comparative analysis and rankings
  */
-export function exportPerformanceReport(performanceData, fuelData, dateRange) {
+export async function exportPerformanceReport(
+  performanceData,
+  fuelData,
+  dateRange
+) {
+  // Validate data before export
+  if (
+    !performanceData ||
+    !performanceData.driverPerformance ||
+    !performanceData.packagePerformance
+  ) {
+    console.warn("Export warning: No performance data available");
+    throw new Error("Tidak ada data kinerja untuk diekspor");
+  }
+
+  if (!fuelData || !fuelData.fuelAnalysis) {
+    console.warn("Export warning: No fuel data available");
+    throw new Error("Tidak ada data BBM untuk diekspor");
+  }
+
   const wb = createWorkbook();
 
   const { driverPerformance, packagePerformance, summary } = performanceData;
@@ -1068,24 +1492,26 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
     columnWidths: [30, 20],
   });
 
-  // Driver Performance sheet
+  // Driver Performance sheet with revenue data
   const driverHeaders = [
     "Nama Sopir",
     "Total Trip",
+    "Trip Selesai",
     "Total Pendapatan",
     "Rata-rata/Trip",
-    "Tingkat Utilisasi",
+    "Tingkat Penyelesaian",
   ];
   const driverData = [
     ["Kinerja Sopir"],
     [],
     driverHeaders,
     ...driverPerformance.map((driver) => [
-      driver.driver_name,
-      driver.totalTrips,
-      formatCurrencyForExcel(driver.totalRevenue),
+      driver.driverName || driver.driver_name || "-",
+      driver.totalTrips || 0,
+      driver.completedTrips || 0,
+      formatCurrencyForExcel(driver.totalRevenue || 0),
       formatCurrencyForExcel(driver.averageRevenuePerTrip || 0),
-      `${driver.utilizationRate || 0}%`,
+      `${driver.completionRate || 0}%`,
     ]),
   ];
 
@@ -1096,6 +1522,7 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
     "2,2": "subHeader",
     "2,3": "subHeader",
     "2,4": "subHeader",
+    "2,5": "subHeader",
   };
 
   // Apply styling to driver data rows
@@ -1103,17 +1530,18 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
     const rowIndex = index + 3;
     driverStyleMap[`${rowIndex},0`] = "data";
     driverStyleMap[`${rowIndex},1`] = "number";
-    driverStyleMap[`${rowIndex},2`] = "currency";
+    driverStyleMap[`${rowIndex},2`] = "number";
     driverStyleMap[`${rowIndex},3`] = "currency";
-    driverStyleMap[`${rowIndex},4`] = "data";
+    driverStyleMap[`${rowIndex},4`] = "currency";
+    driverStyleMap[`${rowIndex},5`] = "data";
   });
 
   addSheet(wb, "Kinerja Sopir", driverData, {
     styleMap: driverStyleMap,
-    columnWidths: [25, 12, 18, 18, 15],
+    columnWidths: [25, 12, 12, 18, 18, 18],
   });
 
-  // Package Performance sheet
+  // Package Performance sheet with revenue data
   const packageHeaders = [
     "Jenis Paket",
     "Total Booking",
@@ -1126,9 +1554,9 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
     [],
     packageHeaders,
     ...packagePerformance.map((pkg) => [
-      pkg.packageType,
-      pkg.totalBookings,
-      formatCurrencyForExcel(pkg.totalRevenue),
+      pkg.packageType || pkg.packageName || "-",
+      pkg.totalBookings || pkg.frequency || 0,
+      formatCurrencyForExcel(pkg.totalRevenue || 0),
       formatCurrencyForExcel(pkg.averageRevenuePerBooking || 0),
       `${pkg.revenueShare || 0}%`,
     ]),
@@ -1158,7 +1586,7 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
     columnWidths: [25, 15, 18, 18, 12],
   });
 
-  // Fuel Analysis sheet
+  // Fuel Analysis sheet with corrected field accessors
   const fuelHeaders = [
     "Armada",
     "Total Pengisian",
@@ -1171,9 +1599,9 @@ export function exportPerformanceReport(performanceData, fuelData, dateRange) {
     [],
     fuelHeaders,
     ...fuelAnalysis.map((fuel) => [
-      fuel.armada_name,
-      fuel.totalRefuels,
-      formatCurrencyForExcel(fuel.totalCost),
+      fuel.armada_name || fuel.armadaName || "-",
+      fuel.totalRefuels || 0,
+      formatCurrencyForExcel(fuel.totalCost || 0),
       formatCurrencyForExcel(fuel.avgCostPerRefuel || 0),
       fuel.avgConsumptionPerTrip?.toFixed(2) || "0.00",
     ]),

@@ -30,7 +30,7 @@ async function handleGetPerformanceReport(request) {
     const toDate = new Date(toStr);
     toDate.setHours(23, 59, 59, 999); // End of day
 
-    // Fetch transactions within date range
+    // Fetch transactions within date range with all necessary fields for revenue calculation
     const transactions = await prisma.transaction.findMany({
       where: {
         booking_date: {
@@ -47,12 +47,7 @@ async function handleGetPerformanceReport(request) {
           },
         ],
       },
-      select: {
-        id: true,
-        booking_date: true,
-        checkout_datetime: true,
-        checkin_datetime: true,
-        actual_checkin_datetime: true,
+      include: {
         driver: {
           select: {
             id: true,
@@ -60,22 +55,33 @@ async function handleGetPerformanceReport(request) {
             phone_number: true,
           },
         },
-        driverId: true,
         package: {
           select: {
             id: true,
             name: true,
             type: true,
+            durationHours: true,
+            hotelTiers: true,
           },
         },
-        packageId: true,
+        armada: {
+          select: {
+            id: true,
+            license_plate: true,
+            brand: true,
+            model: true,
+          },
+        },
       },
       orderBy: {
         booking_date: "asc",
       },
     });
 
-    // Calculate Driver Performance
+    // Import accounting utilities for revenue calculation
+    const { calculateTransactionFinancials } = await import("@/lib/accounting");
+
+    // Calculate Driver Performance with revenue data
     const driverPerformanceMap = new Map();
 
     transactions.forEach((t) => {
@@ -92,6 +98,7 @@ async function handleGetPerformanceReport(request) {
           totalTrips: 0,
           completedTrips: 0,
           totalWorkingHours: 0,
+          totalRevenue: 0,
         });
       }
 
@@ -114,6 +121,10 @@ async function handleGetPerformanceReport(request) {
       if (t.actual_checkin_datetime) {
         driver.completedTrips += 1;
       }
+
+      // Calculate revenue using accounting.js
+      const financials = calculateTransactionFinancials(t);
+      driver.totalRevenue += financials.totalPendapatan || 0;
     });
 
     const driverPerformance = Array.from(driverPerformanceMap.values())
@@ -130,16 +141,21 @@ async function handleGetPerformanceReport(request) {
                 ((driver.completedTrips / driver.totalTrips) * 100).toFixed(1)
               )
             : 0;
+        const averageRevenuePerTrip =
+          driver.totalTrips > 0
+            ? Math.round(driver.totalRevenue / driver.totalTrips)
+            : 0;
 
         return {
           ...driver,
           averageHoursPerTrip,
           completionRate,
+          averageRevenuePerTrip,
         };
       })
       .sort((a, b) => b.totalTrips - a.totalTrips);
 
-    // Calculate Package Performance
+    // Calculate Package Performance with revenue data
     const packagePerformanceMap = new Map();
 
     transactions.forEach((t) => {
@@ -156,19 +172,44 @@ async function handleGetPerformanceReport(request) {
           packageType,
           frequency: 0,
           totalTrips: 0,
+          totalRevenue: 0,
         });
       }
 
       const pkg = packagePerformanceMap.get(packageId);
       pkg.frequency += 1;
       pkg.totalTrips += 1;
+
+      // Calculate revenue using accounting.js
+      const financials = calculateTransactionFinancials(t);
+      pkg.totalRevenue += financials.totalPendapatan || 0;
     });
 
+    // Calculate total revenue for percentage calculation
+    const totalRevenue = Array.from(packagePerformanceMap.values()).reduce(
+      (sum, pkg) => sum + pkg.totalRevenue,
+      0
+    );
+
     const packagePerformance = Array.from(packagePerformanceMap.values())
-      .map((pkg) => ({
-        ...pkg,
-        frequency: pkg.frequency,
-      }))
+      .map((pkg) => {
+        const averageRevenuePerBooking =
+          pkg.totalTrips > 0
+            ? Math.round(pkg.totalRevenue / pkg.totalTrips)
+            : 0;
+        const revenueShare =
+          totalRevenue > 0
+            ? parseFloat(((pkg.totalRevenue / totalRevenue) * 100).toFixed(1))
+            : 0;
+
+        return {
+          ...pkg,
+          frequency: pkg.frequency,
+          totalBookings: pkg.totalTrips,
+          averageRevenuePerBooking,
+          revenueShare,
+        };
+      })
       .sort((a, b) => b.frequency - a.frequency);
 
     // Log report access
@@ -187,6 +228,7 @@ async function handleGetPerformanceReport(request) {
         totalDrivers: driverPerformance.length,
         totalPackages: packagePerformance.length,
         totalTrips: transactions.length,
+        totalRevenue,
         period: {
           from: fromStr,
           to: toStr,

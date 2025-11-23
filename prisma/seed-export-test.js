@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
  * - Berbagai tipe paket (CAR_RENTAL, TOUR_PACKAGE, FULL_DAY_TRIP, CUSTOM_PRICING)
  * - Transaksi dengan berbagai status dan skenario (overtime, no overtime, dll)
  * - Expenses dengan berbagai kategori
- * - Data untuk 3 bulan terakhir (Sept-Nov 2024)
+ * - Data untuk 3 bulan terakhir (Sept-Nov 2025)
  */
 
 async function main() {
@@ -460,49 +460,49 @@ async function main() {
 
   const expenses = [];
 
-  // November 2024 expenses
+  // November 2025 expenses
   expenses.push(
     // Biaya kantor
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-01"),
-        paymentMonth: new Date("2024-11-01"),
+        date: new Date("2025-11-01"),
+        paymentMonth: new Date("2025-11-01"),
         category: "LISTRIK",
         description: "Tagihan listrik kantor bulan November",
         amount: 850000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-02"),
+        approved_at: new Date("2025-11-02"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-01"),
-        paymentMonth: new Date("2024-11-01"),
+        date: new Date("2025-11-01"),
+        paymentMonth: new Date("2025-11-01"),
         category: "INTERNET",
         description: "Tagihan internet kantor bulan November",
         amount: 500000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-02"),
+        approved_at: new Date("2025-11-02"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-05"),
+        date: new Date("2025-11-05"),
         category: "ALAT_TULIS_KANTOR",
         description: "Pembelian ATK (kertas, tinta printer, alat tulis)",
         amount: 450000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-05"),
+        approved_at: new Date("2025-11-05"),
       },
     }),
     // Gaji staff
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-25"),
-        paymentMonth: new Date("2024-11-01"),
+        date: new Date("2025-11-25"),
+        paymentMonth: new Date("2025-11-01"),
         category: "GAJI_STAF_ADMIN",
         description: "Gaji bulan November - Siti Nurhaliza",
         amount: 5000000, // salary + allowance
@@ -510,13 +510,13 @@ async function main() {
         namaPenerima: staff[0].staff_name,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-25"),
+        approved_at: new Date("2025-11-25"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-25"),
-        paymentMonth: new Date("2024-11-01"),
+        date: new Date("2025-11-25"),
+        paymentMonth: new Date("2025-11-01"),
         category: "GAJI_STAF_ADMIN",
         description: "Gaji bulan November - Dewi Lestari",
         amount: 5750000,
@@ -524,13 +524,13 @@ async function main() {
         namaPenerima: staff[1].staff_name,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-25"),
+        approved_at: new Date("2025-11-25"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-25"),
-        paymentMonth: new Date("2024-11-01"),
+        date: new Date("2025-11-25"),
+        paymentMonth: new Date("2025-11-01"),
         category: "GAJI_STAF_OPERASIONAL",
         description: "Gaji bulan November - Agus Salim",
         amount: 4400000,
@@ -538,77 +538,77 @@ async function main() {
         namaPenerima: staff[2].staff_name,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-25"),
+        approved_at: new Date("2025-11-25"),
       },
     }),
     // Perawatan armada
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-10"),
+        date: new Date("2025-11-10"),
         category: "PERAWATAN_ARMADA",
         description: "Servis berkala + ganti oli Honda CR-V",
         amount: 1200000,
         armadaId: armadas[5].id, // CR-V yang MAINTENANCE
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-10"),
+        approved_at: new Date("2025-11-10"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-15"),
+        date: new Date("2025-11-15"),
         category: "BBM",
         description: "BBM operasional armada minggu ke-2 November",
         amount: 3500000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-16"),
+        approved_at: new Date("2025-11-16"),
       },
     }),
     // Konsumsi
     await prisma.expense.create({
       data: {
-        date: new Date("2024-11-08"),
+        date: new Date("2025-11-08"),
         category: "KONSUMSI",
         description: "Konsumsi rapat bulanan + snack kantor",
         amount: 750000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-11-09"),
+        approved_at: new Date("2025-11-09"),
       },
     })
   );
 
-  // October 2024 expenses
+  // October 2025 expenses
   expenses.push(
     await prisma.expense.create({
       data: {
-        date: new Date("2024-10-01"),
-        paymentMonth: new Date("2024-10-01"),
+        date: new Date("2025-10-01"),
+        paymentMonth: new Date("2025-10-01"),
         category: "LISTRIK",
         description: "Tagihan listrik kantor bulan Oktober",
         amount: 820000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-10-02"),
+        approved_at: new Date("2025-10-02"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-10-01"),
-        paymentMonth: new Date("2024-10-01"),
+        date: new Date("2025-10-01"),
+        paymentMonth: new Date("2025-10-01"),
         category: "INTERNET",
         description: "Tagihan internet kantor bulan Oktober",
         amount: 500000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-10-02"),
+        approved_at: new Date("2025-10-02"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-10-25"),
-        paymentMonth: new Date("2024-10-01"),
+        date: new Date("2025-10-25"),
+        paymentMonth: new Date("2025-10-01"),
         category: "GAJI_STAF_ADMIN",
         description: "Gaji bulan Oktober - Siti Nurhaliza",
         amount: 5000000,
@@ -616,13 +616,13 @@ async function main() {
         namaPenerima: staff[0].staff_name,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-10-25"),
+        approved_at: new Date("2025-10-25"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-10-25"),
-        paymentMonth: new Date("2024-10-01"),
+        date: new Date("2025-10-25"),
+        paymentMonth: new Date("2025-10-01"),
         category: "GAJI_STAF_ADMIN",
         description: "Gaji bulan Oktober - Dewi Lestari",
         amount: 5750000,
@@ -630,64 +630,64 @@ async function main() {
         namaPenerima: staff[1].staff_name,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-10-25"),
+        approved_at: new Date("2025-10-25"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-10-12"),
+        date: new Date("2025-10-12"),
         category: "BBM",
         description: "BBM operasional armada minggu ke-2 Oktober",
         amount: 3200000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-10-13"),
+        approved_at: new Date("2025-10-13"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-10-05"),
+        date: new Date("2025-10-05"),
         category: "PERAWATAN_ARMADA",
         description: "Ganti ban Innova Reborn",
         amount: 2500000,
         armadaId: armadas[2].id,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-10-05"),
+        approved_at: new Date("2025-10-05"),
       },
     })
   );
 
-  // September 2024 expenses
+  // September 2025 expenses
   expenses.push(
     await prisma.expense.create({
       data: {
-        date: new Date("2024-09-01"),
-        paymentMonth: new Date("2024-09-01"),
+        date: new Date("2025-09-01"),
+        paymentMonth: new Date("2025-09-01"),
         category: "LISTRIK",
         description: "Tagihan listrik kantor bulan September",
         amount: 780000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-09-02"),
+        approved_at: new Date("2025-09-02"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-09-01"),
-        paymentMonth: new Date("2024-09-01"),
+        date: new Date("2025-09-01"),
+        paymentMonth: new Date("2025-09-01"),
         category: "INTERNET",
         description: "Tagihan internet kantor bulan September",
         amount: 500000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-09-02"),
+        approved_at: new Date("2025-09-02"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-09-25"),
-        paymentMonth: new Date("2024-09-01"),
+        date: new Date("2025-09-25"),
+        paymentMonth: new Date("2025-09-01"),
         category: "GAJI_STAF_ADMIN",
         description: "Gaji bulan September - Siti Nurhaliza",
         amount: 5000000,
@@ -695,18 +695,18 @@ async function main() {
         namaPenerima: staff[0].staff_name,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-09-25"),
+        approved_at: new Date("2025-09-25"),
       },
     }),
     await prisma.expense.create({
       data: {
-        date: new Date("2024-09-15"),
+        date: new Date("2025-09-15"),
         category: "BBM",
         description: "BBM operasional armada minggu ke-2 September",
         amount: 3000000,
         approval_status: "APPROVED",
         approved_by_id: adminUser.id,
-        approved_at: new Date("2024-09-16"),
+        approved_at: new Date("2025-09-16"),
       },
     })
   );
@@ -717,7 +717,7 @@ async function main() {
 
   const transactions = [];
 
-  // November 2024 transactions
+  // November 2025 transactions
   const novemberTxData = [
     // CAR_RENTAL dengan overtime
     {
@@ -863,7 +863,7 @@ async function main() {
 
   for (let i = 0; i < novemberTxData.length; i++) {
     const tx = novemberTxData[i];
-    const checkoutDate = new Date(`2024-11-${String(tx.day).padStart(2, "0")}T${String(tx.checkout).padStart(2, "0")}:00:00`);
+    const checkoutDate = new Date(`2025-11-${String(tx.day).padStart(2, "0")}T${String(tx.checkout).padStart(2, "0")}:00:00`);
     // Calculate checkin datetime
     let checkinDate;
     if (tx.checkin >= 24) {
@@ -872,15 +872,15 @@ async function main() {
       checkinDate.setDate(checkinDate.getDate() + Math.floor(tx.checkin / 24));
       checkinDate.setHours(tx.checkin % 24, 0, 0, 0);
     } else {
-      checkinDate = new Date(`2024-11-${String(tx.day).padStart(2, "0")}T${String(tx.checkin).padStart(2, "0")}:00:00`);
+      checkinDate = new Date(`2025-11-${String(tx.day).padStart(2, "0")}T${String(tx.checkin).padStart(2, "0")}:00:00`);
     }
 
     const transaction = await prisma.transaction.create({
       data: {
-        invoice_code: `INV-2024-11-${String(i + 1).padStart(3, "0")}`,
+        invoice_code: `INV-2025-11-${String(i + 1).padStart(3, "0")}`,
         customer_name: tx.customer,
         customer_phone: tx.phone,
-        booking_date: new Date(`2024-11-${String(tx.day).padStart(2, "0")}`),
+        booking_date: new Date(`2025-11-${String(tx.day).padStart(2, "0")}`),
         checkout_datetime: checkoutDate,
         checkin_datetime: checkinDate,
         actual_checkin_datetime: tx.paymentStatus !== "UNPAID" ? checkinDate : null,
@@ -890,9 +890,9 @@ async function main() {
         payment_status: tx.paymentStatus || "PAID",
         dp_amount: tx.dpAmount,
         approval_status: "APPROVED",
-        submitted_at: new Date(`2024-11-${String(tx.day).padStart(2, "0")}`),
+        submitted_at: new Date(`2025-11-${String(tx.day).padStart(2, "0")}`),
         submitted_by_id: operatorUser.id,
-        approved_at: new Date(`2024-11-${String(tx.day).padStart(2, "0")}`),
+        approved_at: new Date(`2025-11-${String(tx.day).padStart(2, "0")}`),
         approved_by_id: adminUser.id,
         packageId: tx.packageId,
         armadaId: armadas[tx.armadaIdx].id,
@@ -905,7 +905,7 @@ async function main() {
     transactions.push(transaction);
   }
 
-  // October 2024 transactions (lebih sedikit)
+  // October 2025 transactions (lebih sedikit)
   const octoberTxData = [
     {
       day: 5,
@@ -974,22 +974,22 @@ async function main() {
 
   for (let i = 0; i < octoberTxData.length; i++) {
     const tx = octoberTxData[i];
-    const checkoutDate = new Date(`2024-10-${String(tx.day).padStart(2, "0")}T${String(tx.checkout).padStart(2, "0")}:00:00`);
+    const checkoutDate = new Date(`2025-10-${String(tx.day).padStart(2, "0")}T${String(tx.checkout).padStart(2, "0")}:00:00`);
     let checkinDate;
     if (tx.checkin >= 24) {
       checkinDate = new Date(checkoutDate);
       checkinDate.setDate(checkinDate.getDate() + Math.floor(tx.checkin / 24));
       checkinDate.setHours(tx.checkin % 24, 0, 0, 0);
     } else {
-      checkinDate = new Date(`2024-10-${String(tx.day).padStart(2, "0")}T${String(tx.checkin).padStart(2, "0")}:00:00`);
+      checkinDate = new Date(`2025-10-${String(tx.day).padStart(2, "0")}T${String(tx.checkin).padStart(2, "0")}:00:00`);
     }
 
     const transaction = await prisma.transaction.create({
       data: {
-        invoice_code: `INV-2024-10-${String(i + 1).padStart(3, "0")}`,
+        invoice_code: `INV-2025-10-${String(i + 1).padStart(3, "0")}`,
         customer_name: tx.customer,
         customer_phone: tx.phone,
-        booking_date: new Date(`2024-10-${String(tx.day).padStart(2, "0")}`),
+        booking_date: new Date(`2025-10-${String(tx.day).padStart(2, "0")}`),
         checkout_datetime: checkoutDate,
         checkin_datetime: checkinDate,
         actual_checkin_datetime: checkinDate,
@@ -997,9 +997,9 @@ async function main() {
         overtime_rate_per_hour: tx.overtimeRate,
         payment_status: "PAID",
         approval_status: "APPROVED",
-        submitted_at: new Date(`2024-10-${String(tx.day).padStart(2, "0")}`),
+        submitted_at: new Date(`2025-10-${String(tx.day).padStart(2, "0")}`),
         submitted_by_id: operatorUser.id,
-        approved_at: new Date(`2024-10-${String(tx.day).padStart(2, "0")}`),
+        approved_at: new Date(`2025-10-${String(tx.day).padStart(2, "0")}`),
         approved_by_id: adminUser.id,
         packageId: tx.packageId,
         armadaId: armadas[tx.armadaIdx].id,
@@ -1012,7 +1012,7 @@ async function main() {
     transactions.push(transaction);
   }
 
-  // September 2024 transactions
+  // September 2025 transactions
   const septemberTxData = [
     {
       day: 8,
@@ -1054,22 +1054,22 @@ async function main() {
 
   for (let i = 0; i < septemberTxData.length; i++) {
     const tx = septemberTxData[i];
-    const checkoutDate = new Date(`2024-09-${String(tx.day).padStart(2, "0")}T${String(tx.checkout).padStart(2, "0")}:00:00`);
+    const checkoutDate = new Date(`2025-09-${String(tx.day).padStart(2, "0")}T${String(tx.checkout).padStart(2, "0")}:00:00`);
     let checkinDate;
     if (tx.checkin >= 24) {
       checkinDate = new Date(checkoutDate);
       checkinDate.setDate(checkinDate.getDate() + Math.floor(tx.checkin / 24));
       checkinDate.setHours(tx.checkin % 24, 0, 0, 0);
     } else {
-      checkinDate = new Date(`2024-09-${String(tx.day).padStart(2, "0")}T${String(tx.checkin).padStart(2, "0")}:00:00`);
+      checkinDate = new Date(`2025-09-${String(tx.day).padStart(2, "0")}T${String(tx.checkin).padStart(2, "0")}:00:00`);
     }
 
     const transaction = await prisma.transaction.create({
       data: {
-        invoice_code: `INV-2024-09-${String(i + 1).padStart(3, "0")}`,
+        invoice_code: `INV-2025-09-${String(i + 1).padStart(3, "0")}`,
         customer_name: tx.customer,
         customer_phone: tx.phone,
-        booking_date: new Date(`2024-09-${String(tx.day).padStart(2, "0")}`),
+        booking_date: new Date(`2025-09-${String(tx.day).padStart(2, "0")}`),
         checkout_datetime: checkoutDate,
         checkin_datetime: checkinDate,
         actual_checkin_datetime: checkinDate,
@@ -1077,9 +1077,9 @@ async function main() {
         overtime_rate_per_hour: tx.overtimeRate,
         payment_status: "PAID",
         approval_status: "APPROVED",
-        submitted_at: new Date(`2024-09-${String(tx.day).padStart(2, "0")}`),
+        submitted_at: new Date(`2025-09-${String(tx.day).padStart(2, "0")}`),
         submitted_by_id: operatorUser.id,
-        approved_at: new Date(`2024-09-${String(tx.day).padStart(2, "0")}`),
+        approved_at: new Date(`2025-09-${String(tx.day).padStart(2, "0")}`),
         approved_by_id: adminUser.id,
         packageId: tx.packageId,
         armadaId: armadas[tx.armadaIdx].id,
@@ -1110,7 +1110,7 @@ async function main() {
   console.log("  Operator: operator@rental.com / password123");
   console.log("\n💡 Tips for testing:");
   console.log("  - Export laporan untuk bulan November (data terlengkap)");
-  console.log("  - Test filter by date range: Sept-Nov 2024");
+  console.log("  - Test filter by date range: Sept-Nov 2025");
   console.log("  - Check overtime calculations (beberapa transaksi ada overtime)");
   console.log("  - Verify TOUR_PACKAGE pricing (2-4 pax dengan tier berbeda)");
   console.log("  - Check payment status filtering (ada PAID, DOWN_PAYMENT, UNPAID)");

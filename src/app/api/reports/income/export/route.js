@@ -64,7 +64,7 @@ async function handleExportIncomeReport(request) {
       };
     }
 
-    // Fetch transactions with package details
+    // Fetch transactions with package details - ensure all relations are included
     const transactions = await prisma.transaction.findMany({
       where: whereClause,
       include: {
@@ -74,10 +74,12 @@ async function handleExportIncomeReport(request) {
             name: true,
             type: true,
             price: true,
+            durationHours: true,
           },
         },
         armada: {
           select: {
+            id: true,
             license_plate: true,
             brand: true,
             model: true,
@@ -85,6 +87,7 @@ async function handleExportIncomeReport(request) {
         },
         driver: {
           select: {
+            id: true,
             driver_name: true,
           },
         },
@@ -94,11 +97,23 @@ async function handleExportIncomeReport(request) {
       },
     });
 
+    // Validate data before processing
+    if (transactions.length === 0) {
+      console.warn("No transactions found for the specified date range");
+    }
+
     // Group transactions by package and calculate metrics
     const packageGroups = new Map();
+    let validationWarnings = [];
 
     for (const tx of transactions) {
-      if (!tx.package) continue; // Skip if no package (shouldn't happen due to filter)
+      // Validate transaction data
+      if (!tx.package) {
+        validationWarnings.push(
+          `Transaction ${tx.invoice_code} missing package data`
+        );
+        continue;
+      }
 
       const packageId = tx.package.id;
       const packageName = tx.package.name;
@@ -121,6 +136,18 @@ async function handleExportIncomeReport(request) {
       const group = packageGroups.get(packageId);
       const financials = calculateTransactionFinancials(tx);
 
+      // Validate financial calculations
+      if (
+        !financials ||
+        financials.totalPendapatan === undefined ||
+        financials.totalPendapatan === null
+      ) {
+        validationWarnings.push(
+          `Transaction ${tx.invoice_code} has invalid financial calculations`
+        );
+        continue;
+      }
+
       group.transactionCount += 1;
       group.totalRevenue += financials.totalPendapatan;
       group.totalOvertimeRevenue += financials.biayaOvertime || 0;
@@ -133,11 +160,18 @@ async function handleExportIncomeReport(request) {
         totalRevenue: financials.totalPendapatan,
         overtimeRevenue: financials.biayaOvertime || 0,
         baseRevenue: financials.tarifSewa || 0,
+        // Use correct field accessors for nested objects
         armada: tx.armada
           ? `${tx.armada.brand} ${tx.armada.model} (${tx.armada.license_plate})`
           : "-",
         driver: tx.driver?.driver_name || "-",
+        package: tx.package,
       });
+    }
+
+    // Log validation warnings if any
+    if (validationWarnings.length > 0) {
+      console.warn("Income export validation warnings:", validationWarnings);
     }
 
     // Convert to array and calculate averages
@@ -201,7 +235,24 @@ async function handleExportIncomeReport(request) {
     });
   } catch (error) {
     console.error("Error exporting income report:", error);
-    return errorResponse("Gagal mengekspor laporan pemasukan", 500);
+    console.error("Error stack:", error.stack);
+
+    // Provide more specific error messages
+    if (error.message?.includes("Prisma")) {
+      return errorResponse(
+        "Gagal mengambil data dari database. Silakan coba lagi.",
+        500
+      );
+    }
+
+    if (error.message?.includes("date")) {
+      return errorResponse("Format tanggal tidak valid", 400);
+    }
+
+    return errorResponse(
+      "Gagal mengekspor laporan pemasukan. Silakan coba lagi.",
+      500
+    );
   }
 }
 

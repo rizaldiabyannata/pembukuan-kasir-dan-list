@@ -9,6 +9,12 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Car, Loader2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 export function FleetStatusChart({ data, loading }) {
   if (loading) {
@@ -82,12 +88,40 @@ export function FleetStatusChart({ data, loading }) {
     },
   };
 
+  // Chart configuration for shadcn charts
+  const chartConfig = {
+    READY: {
+      label: "Siap",
+      color: "#10b981", // Explicit green
+    },
+    BOOKED: {
+      label: "Dipesan",
+      color: "#f59e0b", // Explicit yellow
+    },
+    ON_TRIP: {
+      label: "Sedang Jalan",
+      color: "#3b82f6", // Explicit blue
+    },
+    MAINTENANCE: {
+      label: "Perawatan",
+      color: "#ef4444", // Explicit red
+    },
+  };
+
   const total = data.reduce((sum, item) => sum + item.count, 0);
   const activeFleets =
     (data.find((d) => d.status === "ON_TRIP")?.count || 0) +
     (data.find((d) => d.status === "BOOKED")?.count || 0);
   const availableFleets = data.find((d) => d.status === "READY")?.count || 0;
   const utilization = total > 0 ? ((activeFleets / total) * 100).toFixed(1) : 0;
+
+  // Prepare data for pie chart
+  const pieChartData = data.map((item) => ({
+    name: item.status,
+    value: item.count,
+    label: statusConfig[item.status]?.label || item.status,
+    fill: chartConfig[item.status]?.color || "hsl(var(--muted))",
+  }));
 
   return (
     <Card className="h-full">
@@ -100,6 +134,46 @@ export function FleetStatusChart({ data, loading }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
+          {/* Pie Chart Visualization */}
+          <div className="flex items-center justify-center">
+            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, value, percent }) => {
+                      const config = statusConfig[name];
+                      return `${config?.label || name}: ${value} (${(
+                        percent * 100
+                      ).toFixed(0)}%)`;
+                    }}
+                    labelLine={true}
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => [
+                          `${value} unit`,
+                          statusConfig[name]?.label || name,
+                        ]}
+                      />
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </div>
+
           {/* Progress Bars */}
           <div className="space-y-4">
             {data.map((item) => {
@@ -204,15 +278,15 @@ export function FleetStatusChart({ data, loading }) {
                     utilization >= 70
                       ? "text-green-700 border-green-300"
                       : utilization >= 50
-                      ? "text-yellow-700 border-yellow-300"
-                      : "text-red-700 border-red-300"
+                        ? "text-yellow-700 border-yellow-300"
+                        : "text-red-700 border-red-300"
                   }`}
                 >
                   {utilization >= 70
                     ? "Optimal"
                     : utilization >= 50
-                    ? "Normal"
-                    : "Rendah"}
+                      ? "Normal"
+                      : "Rendah"}
                 </Badge>
               </div>
               <p
@@ -220,8 +294,8 @@ export function FleetStatusChart({ data, loading }) {
                   utilization >= 70
                     ? "text-green-700"
                     : utilization >= 50
-                    ? "text-yellow-700"
-                    : "text-red-700"
+                      ? "text-yellow-700"
+                      : "text-red-700"
                 }`}
               >
                 {utilization}%
@@ -230,8 +304,8 @@ export function FleetStatusChart({ data, loading }) {
                 {utilization >= 70
                   ? "Sangat baik"
                   : utilization >= 50
-                  ? "Cukup baik"
-                  : "Perlu ditingkatkan"}
+                    ? "Cukup baik"
+                    : "Perlu ditingkatkan"}
               </p>
             </div>
           </div>

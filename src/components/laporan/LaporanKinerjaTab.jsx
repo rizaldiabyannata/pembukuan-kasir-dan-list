@@ -170,7 +170,36 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
   };
 
   const handleExport = async () => {
-    if (!performanceData || !fuelData) return;
+    // Validate data before export
+    if (!performanceData) {
+      console.warn("Export warning: No performance data available");
+      alert(
+        "Tidak ada data kinerja untuk diekspor. Silakan pilih periode yang berbeda."
+      );
+      return;
+    }
+
+    if (!fuelData) {
+      console.warn("Export warning: No fuel data available");
+      alert(
+        "Tidak ada data BBM untuk diekspor. Silakan pilih periode yang berbeda."
+      );
+      return;
+    }
+
+    if (
+      !performanceData.driverPerformance ||
+      performanceData.driverPerformance.length === 0
+    ) {
+      console.warn("Export warning: No driver performance data");
+    }
+
+    if (
+      !performanceData.packagePerformance ||
+      performanceData.packagePerformance.length === 0
+    ) {
+      console.warn("Export warning: No package performance data");
+    }
 
     setIsExporting(true);
     try {
@@ -185,8 +214,16 @@ export default function LaporanKinerjaTab({ dateRange, isLoading }) {
           };
 
       await exportPerformanceReport(performanceData, fuelData, reportDateRange);
+
+      // Show success message
+      console.log("Export successful: Performance report exported");
     } catch (error) {
       console.error("Export failed:", error);
+
+      // Show user-friendly error message
+      const errorMessage =
+        error.message || "Gagal mengekspor laporan. Silakan coba lagi.";
+      alert(`Gagal mengekspor laporan kinerja: ${errorMessage}`);
     } finally {
       setIsExporting(false);
     }

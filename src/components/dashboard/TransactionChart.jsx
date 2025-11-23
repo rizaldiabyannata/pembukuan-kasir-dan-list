@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Card,
   CardContent,
@@ -107,8 +108,8 @@ export function TransactionChart({ data, period, loading }) {
     firstHalfAvg > 0
       ? (((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100).toFixed(1)
       : secondHalfAvg > 0
-      ? "100.0"
-      : "0.0";
+        ? "100.0"
+        : "0.0";
 
   const isGrowing = secondHalfAvg > firstHalfAvg;
 
@@ -119,8 +120,8 @@ export function TransactionChart({ data, period, loading }) {
       period === "today"
         ? item.date.split(":")[0] + ":00"
         : period === "month"
-        ? item.date.split("-").pop()
-        : item.date,
+          ? item.date.split("-").pop()
+          : item.date,
   }));
 
   return (
@@ -199,7 +200,7 @@ export function TransactionChart({ data, period, loading }) {
                 />
                 <Bar
                   dataKey="count"
-                  fill="hsl(var(--primary))"
+                  fill="#3b82f6"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={50}
                 />

@@ -321,7 +321,7 @@ export function PackageForm({
     }
 
     setIsLoadingData(false);
-  }, [package_, defaultValues, reset, open]);
+  }, [package_, defaultValues, reset, open, setValue]);
 
   // When the user changes the package type in the form, clear or set fields
   // that are not relevant for the selected type to avoid accidental edits.

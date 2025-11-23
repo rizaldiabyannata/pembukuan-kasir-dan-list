@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { TransactionChart } from "@/components/dashboard/TransactionChart";
@@ -201,43 +201,37 @@ function DashboardPage() {
 
   return (
     <>
-      <header className="flex items-center gap-4 p-4">
-        <SidebarTrigger className="-ml-1" />
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gambaran umum bisnis Anda — statistik, grafik, dan insight keuangan.
-          </p>
+      <PageHeader
+        title="Dashboard"
+        description="Gambaran umum bisnis Anda — statistik, grafik, dan insight keuangan."
+      >
+        <div className="flex gap-2">
+          <Button
+            variant={period === "today" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriod("today")}
+          >
+            <Clock className="mr-2 h-4 w-4" />
+            Hari Ini
+          </Button>
+          <Button
+            variant={period === "month" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriod("month")}
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            Bulan Ini
+          </Button>
+          <Button
+            variant={period === "year" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriod("year")}
+          >
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Tahun Ini
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-2">
-            <Button
-              variant={period === "today" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod("today")}
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              Hari Ini
-            </Button>
-            <Button
-              variant={period === "month" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod("month")}
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              Bulan Ini
-            </Button>
-            <Button
-              variant={period === "year" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriod("year")}
-            >
-              <TrendingUp className="mr-2 h-4 w-4" />
-              Tahun Ini
-            </Button>
-          </div>
-        </div>
-      </header>
+      </PageHeader>
       <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
         {error ? (
           <ErrorDisplay

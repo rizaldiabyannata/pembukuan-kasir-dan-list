@@ -48,8 +48,8 @@ describe("Incentive Recipients API - Property-Based Tests", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     // Dynamically import the route handler after mocks are set up
-    const module = await import("../route.js");
-    GET = module.GET;
+    const routeModule = await import("../route.js");
+    GET = routeModule.GET;
   });
 
   /**

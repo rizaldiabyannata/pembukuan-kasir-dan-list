@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import { useState, useCallback, useRef, useEffect } from "react";
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds

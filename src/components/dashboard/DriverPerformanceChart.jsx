@@ -51,7 +51,7 @@ export function DriverPerformanceChart({ data, loading, period }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-600" />
+            <Users className="h-5 w-5 text-primary" />
             Performa Sopir
           </CardTitle>
           <CardDescription>Tidak ada data performa sopir yang tersedia</CardDescription>
@@ -142,7 +142,7 @@ export function DriverPerformanceChart({ data, loading, period }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-blue-600" />
+          <Users className="h-5 w-5 text-primary" />
           Performa Sopir
         </CardTitle>
         <CardDescription className="flex items-center gap-4">
@@ -166,44 +166,56 @@ export function DriverPerformanceChart({ data, loading, period }) {
           {/* Chart */}
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <BarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="name"
                   angle={-45}
                   textAnchor="end"
                   height={80}
                   fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <YAxis
                   fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
                   tickFormatter={(value) => {
-                    if (selectedMetric === 'totalIncome') {
-                      return formatCurrency(value).replace('Rp', '').trim();
-                    } else if (selectedMetric === 'onTimeRate') {
+                    if (selectedMetric === "totalIncome") {
+                      return formatCurrency(value).replace("Rp", "").trim();
+                    } else if (selectedMetric === "onTimeRate") {
                       return `${value}%`;
                     }
                     return value;
                   }}
                 />
                 <Tooltip
+                  cursor={{ fill: "rgba(0,0,0,0.05)" }}
                   formatter={(value, name) => {
-                    if (selectedMetric === 'totalIncome') {
-                      return [formatCurrency(value), getMetricLabel(selectedMetric)];
-                    } else if (selectedMetric === 'onTimeRate') {
+                    if (selectedMetric === "totalIncome") {
+                      return [
+                        formatCurrency(value),
+                        getMetricLabel(selectedMetric),
+                      ];
+                    } else if (selectedMetric === "onTimeRate") {
                       return [`${value}%`, getMetricLabel(selectedMetric)];
                     }
                     return [value, getMetricLabel(selectedMetric)];
                   }}
                   labelFormatter={(label) => {
-                    const driver = chartData.find(d => d.name === label);
+                    const driver = chartData.find((d) => d.name === label);
                     return driver ? driver.fullName : label;
                   }}
                 />
                 <Bar
                   dataKey={selectedMetric}
-                  fill={getMetricColor(selectedMetric)}
+                  fill="hsl(var(--primary))"
                   radius={[4, 4, 0, 0]}
+                  maxBarSize={50}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -211,59 +223,80 @@ export function DriverPerformanceChart({ data, loading, period }) {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-card border rounded-lg p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-blue-700">Total Perjalanan</p>
-                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Perjalanan
+                </p>
+                <TrendingUp className="h-4 w-4 text-primary" />
               </div>
-              <p className="text-2xl font-bold text-blue-600">{totalTrips}</p>
-              <p className="text-xs text-blue-600 mt-1">
-                {filteredData.length} sopir • Rata-rata {(totalTrips / Math.max(filteredData.length, 1)).toFixed(1)} perjalanan
+              <p className="text-2xl font-bold text-primary">{totalTrips}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {filteredData.length} sopir • Rata-rata{" "}
+                {(totalTrips / Math.max(filteredData.length, 1)).toFixed(1)}{" "}
+                perjalanan
               </p>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-card border rounded-lg p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-green-700">Tepat Waktu Rata-rata</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Tepat Waktu Rata-rata
+                </p>
                 <Clock className="h-4 w-4 text-green-600" />
               </div>
-              <p className="text-2xl font-bold text-green-600">{formatPercentage(avgOnTimeRate)}</p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-2xl font-bold text-green-600">
+                {formatPercentage(avgOnTimeRate)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Target: ≥ 90% untuk performa optimal
               </p>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="bg-card border rounded-lg p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-amber-700">Total Pendapatan</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Pendapatan
+                </p>
                 <DollarSign className="h-4 w-4 text-amber-600" />
               </div>
-              <p className="text-2xl font-bold text-amber-600">{formatCurrency(totalIncome)}</p>
-              <p className="text-xs text-amber-600 mt-1">
-                Rata-rata {formatCurrency(totalIncome / Math.max(filteredData.length, 1))} per sopir
+              <p className="text-2xl font-bold text-amber-600">
+                {formatCurrency(totalIncome)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Rata-rata{" "}
+                {formatCurrency(
+                  totalIncome / Math.max(filteredData.length, 1)
+                )}{" "}
+                per sopir
               </p>
             </div>
           </div>
 
           {/* Top Performer Highlight */}
           {topPerformer && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
               <div className="flex items-center gap-3">
                 <div className="shrink-0">
-                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                    <Users className="h-6 w-6 text-white" />
+                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                    <Users className="h-6 w-6 text-primary-foreground" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-900">Top Performer</p>
+                  <p className="text-sm font-medium text-primary">
+                    Top Performer
+                  </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <p className="text-lg font-bold text-blue-700">{topPerformer.driverName}</p>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                    <p className="text-lg font-bold text-foreground">
+                      {topPerformer.driverName}
+                    </p>
+                    <Badge variant="secondary">
                       {topPerformer.tripCount} perjalanan
                     </Badge>
                   </div>
-                  <p className="text-xs text-blue-700 mt-1">
-                    {formatPercentage(topPerformer.onTimeRate)} tepat waktu • {formatCurrency(topPerformer.totalIncome)} pendapatan
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatPercentage(topPerformer.onTimeRate)} tepat waktu •{" "}
+                    {formatCurrency(topPerformer.totalIncome)} pendapatan
                   </p>
                 </div>
               </div>
@@ -271,17 +304,31 @@ export function DriverPerformanceChart({ data, loading, period }) {
           )}
 
           {/* Performance Insights */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm font-semibold text-gray-700 mb-2">💡 Insight Performa</p>
-            <div className="space-y-2 text-sm text-gray-600">
+          <div className="bg-muted/50 border rounded-lg p-4">
+            <p className="text-sm font-semibold mb-2">💡 Insight Performa</p>
+            <div className="space-y-2 text-sm text-muted-foreground">
               <p>
-                <span className="font-medium">Distribusi Perjalanan:</span> {filteredData.filter(d => d.tripCount > 0).length} dari {filteredData.length} sopir aktif dalam periode ini.
+                <span className="font-medium text-foreground">
+                  Distribusi Perjalanan:
+                </span>{" "}
+                {filteredData.filter((d) => d.tripCount > 0).length} dari{" "}
+                {filteredData.length} sopir aktif dalam periode ini.
               </p>
               <p>
-                <span className="font-medium">Tingkat Ketepatan:</span> {avgOnTimeRate >= 90 ? 'Baik' : avgOnTimeRate >= 75 ? 'Cukup' : 'Perlu Perbaikan'} ({formatPercentage(avgOnTimeRate)})
+                <span className="font-medium text-foreground">
+                  Tingkat Ketepatan:
+                </span>{" "}
+                {avgOnTimeRate >= 90
+                  ? "Baik"
+                  : avgOnTimeRate >= 75
+                  ? "Cukup"
+                  : "Perlu Perbaikan"}{" "}
+                ({formatPercentage(avgOnTimeRate)})
               </p>
               <p>
-                <span className="font-medium">Rekomendasi:</span> Fokus pada sopir dengan performa di bawah rata-rata untuk meningkatkan efisiensi operasional.
+                <span className="font-medium text-foreground">Rekomendasi:</span>{" "}
+                Fokus pada sopir dengan performa di bawah rata-rata untuk
+                meningkatkan efisiensi operasional.
               </p>
             </div>
           </div>

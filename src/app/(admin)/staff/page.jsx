@@ -4,8 +4,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 
+import { PageHeader } from "@/components/ui/page-header";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
+
 import StaffCard from "@/components/staff/StaffCard";
-import StaffTopHeader from "@/components/staff/StaffTopHeader";
 import StaffDialog from "@/components/staff/StaffDialog";
 
 export default function StaffPage() {
@@ -226,14 +230,35 @@ export default function StaffPage() {
 
   return (
     <div>
+      <PageHeader
+        title="Manajemen Staff"
+        description="Kelola data staff dan informasi penggajian bulanan."
+      >
+        <Button onClick={openNewStaffDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Staff
+        </Button>
+      </PageHeader>
+
       <div className="flex flex-col gap-4 p-4 pt-0">
-        <StaffTopHeader
-          onAdd={openNewStaffDialog}
-          searchValue={searchTerm}
-          onSearchChange={handleSearchChange}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-        />
+        <div className="flex flex-col sm:flex-row items-end gap-4 mb-4">
+          <Input
+            placeholder="Cari nama, NIK, posisi, atau no. HP..."
+            className="max-w-sm"
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white"
+          >
+            <option value="">Semua Status</option>
+            <option value="ACTIVE">Aktif</option>
+            <option value="INACTIVE">Tidak Aktif</option>
+            <option value="ON_LEAVE">Cuti</option>
+          </select>
+        </div>
         <div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredStaff.map((staffMember) => (

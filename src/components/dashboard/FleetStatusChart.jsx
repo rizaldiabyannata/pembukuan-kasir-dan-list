@@ -93,7 +93,7 @@ export function FleetStatusChart({ data, loading }) {
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Car className="h-5 w-5 text-purple-600" />
+          <Car className="h-5 w-5 text-primary" />
           Status Armada
         </CardTitle>
         <CardDescription>Distribusi status {total} armada</CardDescription>
@@ -129,7 +129,7 @@ export function FleetStatusChart({ data, loading }) {
                       </Badge>
                     </div>
                   </div>
-                  <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="relative h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className={`absolute top-0 left-0 h-full ${config.color} transition-all duration-500 ease-out rounded-full`}
                       style={{ width: `${percentage}%` }}
@@ -143,7 +143,7 @@ export function FleetStatusChart({ data, loading }) {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t">
             <div
-              className={`p-4 rounded-lg border-2 ${statusConfig.READY.lightColor} ${statusConfig.READY.borderColor} overflow-hidden`}
+              className={`p-4 rounded-lg border bg-card text-card-foreground shadow-sm`}
             >
               <div className="flex items-center justify-between mb-2 gap-2">
                 <p className="text-xs font-medium text-muted-foreground">
@@ -151,7 +151,7 @@ export function FleetStatusChart({ data, loading }) {
                 </p>
                 <Badge
                   variant="outline"
-                  className={`text-xs ${statusConfig.READY.textColor} bg-white shrink-0`}
+                  className={`text-xs ${statusConfig.READY.textColor} bg-background shrink-0`}
                 >
                   Ready
                 </Badge>
@@ -168,7 +168,7 @@ export function FleetStatusChart({ data, loading }) {
             </div>
 
             <div
-              className={`p-4 rounded-lg border-2 ${statusConfig.ON_TRIP.lightColor} ${statusConfig.ON_TRIP.borderColor} overflow-hidden`}
+              className={`p-4 rounded-lg border bg-card text-card-foreground shadow-sm`}
             >
               <div className="flex items-center justify-between mb-2 gap-2">
                 <p className="text-xs font-medium text-muted-foreground">
@@ -176,7 +176,7 @@ export function FleetStatusChart({ data, loading }) {
                 </p>
                 <Badge
                   variant="outline"
-                  className={`text-xs ${statusConfig.ON_TRIP.textColor} bg-white shrink-0`}
+                  className={`text-xs ${statusConfig.ON_TRIP.textColor} bg-background shrink-0`}
                 >
                   Produktif
                 </Badge>
@@ -192,13 +192,7 @@ export function FleetStatusChart({ data, loading }) {
             </div>
 
             <div
-              className={`p-4 rounded-lg border-2 overflow-hidden ${
-                utilization >= 70
-                  ? "bg-green-50 border-green-200"
-                  : utilization >= 50
-                    ? "bg-yellow-50 border-yellow-200"
-                    : "bg-red-50 border-red-200"
-              }`}
+              className={`p-4 rounded-lg border bg-card text-card-foreground shadow-sm`}
             >
               <div className="flex items-center justify-between mb-2 gap-2">
                 <p className="text-xs font-medium text-muted-foreground">
@@ -206,19 +200,19 @@ export function FleetStatusChart({ data, loading }) {
                 </p>
                 <Badge
                   variant="outline"
-                  className={`text-xs bg-white shrink-0 ${
+                  className={`text-xs bg-background shrink-0 ${
                     utilization >= 70
                       ? "text-green-700 border-green-300"
                       : utilization >= 50
-                        ? "text-yellow-700 border-yellow-300"
-                        : "text-red-700 border-red-300"
+                      ? "text-yellow-700 border-yellow-300"
+                      : "text-red-700 border-red-300"
                   }`}
                 >
                   {utilization >= 70
                     ? "Optimal"
                     : utilization >= 50
-                      ? "Normal"
-                      : "Rendah"}
+                    ? "Normal"
+                    : "Rendah"}
                 </Badge>
               </div>
               <p
@@ -226,18 +220,18 @@ export function FleetStatusChart({ data, loading }) {
                   utilization >= 70
                     ? "text-green-700"
                     : utilization >= 50
-                      ? "text-yellow-700"
-                      : "text-red-700"
+                    ? "text-yellow-700"
+                    : "text-red-700"
                 }`}
               >
                 {utilization}%
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {utilization >= 70
-                  ? "Sangat baik - Armada digunakan maksimal"
+                  ? "Sangat baik"
                   : utilization >= 50
-                    ? "Cukup baik - Masih ada ruang untuk peningkatan"
-                    : "Perlu ditingkatkan - Banyak armada menganggur"}
+                  ? "Cukup baik"
+                  : "Perlu ditingkatkan"}
               </p>
             </div>
           </div>

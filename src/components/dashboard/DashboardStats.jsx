@@ -127,7 +127,7 @@ export function DashboardStats({ stats, loading }) {
         .map((stat) => (
           <Card
             key={stat.title}
-            className="hover:shadow-lg transition-shadow overflow-hidden"
+            className="hover:shadow-md transition-shadow overflow-hidden"
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium pr-2">
@@ -138,13 +138,13 @@ export function DashboardStats({ stats, loading }) {
               </div>
             </CardHeader>
             <CardContent className="space-y-1">
-              <div className="text-lg sm:text-xl font-bold wrap-break-word">
+              <div className="text-2xl font-bold wrap-break-word">
                 {stat.value}
               </div>
               <p className="text-xs text-muted-foreground wrap-break-word">
                 {stat.description}
               </p>
-              <p className="text-xs font-medium text-gray-600 wrap-break-word">
+              <p className="text-xs font-medium text-muted-foreground wrap-break-word mt-1">
                 {stat.detail}
               </p>
             </CardContent>

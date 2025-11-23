@@ -29,18 +29,21 @@ jest.mock("../../components/ui/skeleton", () => ({
   ),
 }));
 
-// Mock all child components
-jest.mock("../../components/packages/PackageHeader", () => {
-  return function MockPackageHeader({ onAdd }) {
-    return (
-      <div data-testid="package-header">
-        <button data-testid="add-package-btn" onClick={onAdd}>
-          Tambah Paket
-        </button>
-      </div>
-    );
-  };
-});
+jest.mock("../../components/ui/card-skeleton", () => ({
+  CardSkeleton: ({ count }) => (
+    <div data-testid="card-skeleton">Skeleton Count: {count}</div>
+  ),
+}));
+
+// Mock PageHeader from ui
+jest.mock("../../components/ui/page-header", () => ({
+  PageHeader: ({ title, children }) => (
+    <div data-testid="package-header">
+      <h1>{title}</h1>
+      {children}
+    </div>
+  ),
+}));
 
 jest.mock("../../components/packages/PackageList", () => ({
   PackageList: function MockPackageList({
@@ -247,10 +250,10 @@ describe("PackagesPage Component", () => {
       render(<PackagesPage />);
 
       await waitFor(() => {
-        expect(screen.getByTestId("add-package-btn")).toBeInTheDocument();
+        expect(screen.getByText("Tambah Paket")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByTestId("add-package-btn"));
+      fireEvent.click(screen.getByText("Tambah Paket"));
 
       await waitFor(() => {
         expect(screen.getByTestId("package-form")).toBeInTheDocument();
@@ -436,7 +439,7 @@ describe("PackagesPage Component", () => {
       render(<PackagesPage />);
 
       await waitFor(() => {
-        fireEvent.click(screen.getByTestId("add-package-btn"));
+        fireEvent.click(screen.getByText("Tambah Paket"));
       });
 
       await waitFor(() => {
@@ -469,7 +472,7 @@ describe("PackagesPage Component", () => {
       render(<PackagesPage />);
 
       await waitFor(() => {
-        fireEvent.click(screen.getByTestId("add-package-btn"));
+        fireEvent.click(screen.getByText("Tambah Paket"));
       });
 
       await waitFor(() => {
@@ -494,7 +497,7 @@ describe("PackagesPage Component", () => {
       render(<PackagesPage />);
 
       await waitFor(() => {
-        fireEvent.click(screen.getByTestId("add-package-btn"));
+        fireEvent.click(screen.getByText("Tambah Paket"));
       });
 
       await waitFor(() => {
@@ -527,7 +530,7 @@ describe("PackagesPage Component", () => {
 
       // Open form
       await waitFor(() => {
-        fireEvent.click(screen.getByTestId("add-package-btn"));
+        fireEvent.click(screen.getByText("Tambah Paket"));
       });
 
       await waitFor(() => {

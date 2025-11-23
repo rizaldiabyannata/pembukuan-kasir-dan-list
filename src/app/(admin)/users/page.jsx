@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import UserHeader from "@/components/users/UserHeader";
+import { PageHeader } from "@/components/ui/page-header";
 import UserDialog from "@/components/users/UserDialog";
 import {
   Table,
@@ -33,46 +33,41 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Pencil, Trash2, Shield } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Shield, PlusCircle } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
+// ... imports
+
 export default function UsersPage() {
-  const router = useRouter();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const router = useRouter();
 
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
     try {
-      const res = await fetch("/api/users", {
+      setLoading(true);
+      const response = await fetch("/api/users", {
         credentials: "include",
       });
 
-      if (res.status === 401 || res.status === 403) {
-        console.log("Unauthorized, redirecting to login...");
-        router.push("/");
-        return;
-      }
-
-      if (!res.ok) {
+      if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
 
-      const result = await res.json();
-      const data = result.data || result;
-      setUsers(Array.isArray(data) ? data : []);
+      const data = await response.json();
+      setUsers(data.data || data);
     } catch (error) {
       console.error("Error fetching users:", error);
-      setUsers([]);
+      toast.error("Gagal memuat data user");
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -97,71 +92,53 @@ export default function UsersPage() {
     if (!userToDelete) return;
 
     try {
-      console.log("🗑️ Deleting user:", userToDelete.id);
-      const res = await fetch(`/api/users/${userToDelete.id}`, {
+      const response = await fetch(`/api/users/${userToDelete.id}`, {
         method: "DELETE",
         credentials: "include",
       });
 
-      console.log("📡 Delete response status:", res.status);
-
-      if (res.status === 401 || res.status === 403) {
-        console.log("Unauthorized, redirecting to login...");
-        router.push("/");
-        return;
+      if (!response.ok) {
+        throw new Error("Failed to delete user");
       }
 
-      if (!res.ok) {
-        let errorData;
-        try {
-          errorData = await res.json();
-        } catch (parseErr) {
-          errorData = {
-            message: `Server Error: ${res.status} ${res.statusText}`,
-          };
-        }
-        throw new Error(errorData.message || "Gagal menghapus user");
-      }
-
-      const result = await res.json();
-      console.log("📦 Delete response data:", result);
-
-      toast.success("User berhasil dihapus!", {
-        description: `${userToDelete.name} telah dihapus dari sistem`,
-      });
-
-      fetchUsers();
+      toast.success("User berhasil dihapus");
       setDeleteDialogOpen(false);
       setUserToDelete(null);
+      fetchUsers();
     } catch (error) {
-      console.error("❌ Error deleting user:", error);
-      toast.error("Gagal menghapus user", {
-        description: error.message,
-      });
+      console.error("Error deleting user:", error);
+      toast.error("Gagal menghapus user");
     }
+  };
+
+  const getRoleIcon = (role) => {
+    return <Shield className="mr-1 h-3 w-3" />;
   };
 
   const getRoleBadgeVariant = (role) => {
     switch (role) {
       case "ADMIN":
+        return "destructive";
+      case "STAFF":
         return "default";
       case "OPERATOR":
-        return "outline";
+        return "secondary";
       default:
         return "outline";
     }
   };
 
-  const getRoleIcon = (role) => {
-    if (role === "ADMIN") {
-      return <Shield className="h-3 w-3 mr-1" />;
-    }
-    return null;
-  };
-
   return (
     <div className="flex w-full flex-col">
-      <UserHeader onAdd={handleAdd} />
+      <PageHeader
+        title="Manajemen User"
+        description="Kelola pengguna sistem — tambah, edit, dan atur role & permission."
+      >
+        <Button onClick={handleAdd}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah User
+        </Button>
+      </PageHeader>
 
       <div className="flex-1 p-6">
         {loading ? (

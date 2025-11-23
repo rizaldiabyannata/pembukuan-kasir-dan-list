@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import PackageHeader from "@/components/packages/PackageHeader";
+import { PageHeader } from "@/components/ui/page-header";
+import { PlusCircle } from "lucide-react";
 import { PackageForm } from "@/components/packages/PackageForm";
 import { PackageList } from "@/components/packages/PackageList";
 import { PackageDetail } from "@/components/packages/PackageDetail";
@@ -164,7 +165,15 @@ export default function PackagesPage() {
 
   return (
     <div>
-      <PackageHeader onAdd={openCreateForm} />
+      <PageHeader
+        title="Manajemen Paket"
+        description="Kelola paket layanan Anda — tambah, edit, dan lihat detail paket."
+      >
+        <Button onClick={openCreateForm}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Paket
+        </Button>
+      </PageHeader>
 
       <div className="p-4">
         {isLoading ? (

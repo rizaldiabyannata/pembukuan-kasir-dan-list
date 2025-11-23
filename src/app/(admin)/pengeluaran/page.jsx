@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import PengeluaranHeader from "@/components/pengeluaran/PengeluaranHeader";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { PageHeader } from "@/components/ui/page-header";
+import { PlusCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import PengeluaranFilters from "@/components/pengeluaran/PengeluaranFilters";
 import PengeluaranTable from "@/components/pengeluaran/PengeluaranTable";
 import PengeluaranDialog from "@/components/pengeluaran/PengeluaranDialog";
@@ -130,76 +132,7 @@ export default function PengeluaranPage() {
     fetchUserRole();
   }, []);
 
-  // --- Data Fetching ---
-  async function fetchData(page = 1) {
-    try {
-      setIsLoading(true);
-
-      // Jika ada filter aktif, ambil semua data untuk filtering akurat
-      const hasActiveFilters =
-        searchTerm.trim() || dateRange.from || dateRange.to;
-      const params = new URLSearchParams();
-
-      if (hasActiveFilters) {
-        // Ambil semua data untuk filtering client-side yang akurat
-        params.set("page", "1");
-        params.set("limit", "1000"); // Ambil banyak data untuk filtering
-      } else {
-        // Pagination normal
-        params.set("page", page.toString());
-        params.set("limit", itemsPerPage.toString());
-      }
-
-      const res = await fetch(`/api/expenses?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("fetch failed");
-      const result = await res.json();
-
-      // API returns { success, data: { data, pagination } }
-      const responseData = result.data || result;
-      const expensesData = responseData.data || responseData;
-      const paginationData = responseData.pagination;
-
-      const dataArray = Array.isArray(expensesData) ? expensesData : [];
-
-      console.log("📦 Fetched expenses data:", {
-        count: dataArray.length,
-        page,
-        hasFilters: hasActiveFilters,
-        pagination: paginationData,
-        sample: dataArray[0],
-        dates: dataArray.slice(0, 3).map((item) => ({
-          id: item.id,
-          date: item.date,
-          description: item.description?.substring(0, 20),
-        })),
-      });
-
-      setData(dataArray);
-
-      if (!hasActiveFilters) {
-        // Hanya update pagination info jika tidak ada filter
-        setCurrentPage(paginationData?.currentPage || page);
-        setTotalPages(paginationData?.totalPages || 1);
-        setTotalItems(paginationData?.totalItems || dataArray.length);
-      } else {
-        // Dengan filter, reset pagination info
-        setCurrentPage(1);
-        setTotalPages(1);
-        setTotalItems(dataArray.length);
-      }
-    } catch (err) {
-      console.error("Failed to load data", err);
-      setData([]);
-      setTotalPages(1);
-      setTotalItems(0);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function fetchDependencies() {
+  const fetchDependencies = async () => {
     try {
       setIsLoadingDependencies(true);
       const [armadaRes, driverRes, stafRes] = await Promise.all([
@@ -227,11 +160,54 @@ export default function PengeluaranPage() {
     } finally {
       setIsLoadingDependencies(false);
     }
-  }
+  };
+
+  const fetchData = useCallback(async (page = 1) => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+      });
+
+      const response = await fetch(`/api/expenses?${params}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch expenses");
+      }
+
+      const result = await response.json();
+      
+      // Handle different API response formats
+      if (result.data) {
+        setData(Array.isArray(result.data) ? result.data : []);
+        setTotalPages(result.pagination?.totalPages || 1);
+        setTotalItems(result.pagination?.totalItems || result.data.length);
+      } else if (Array.isArray(result)) {
+        setData(result);
+        setTotalPages(1);
+        setTotalItems(result.length);
+      } else {
+        setData([]);
+        setTotalPages(1);
+        setTotalItems(0);
+      }
+    } catch (error) {
+      console.error("Error fetching expenses:", error);
+      toast.error("Gagal memuat data pengeluaran");
+      setData([]);
+      setTotalPages(1);
+      setTotalItems(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [itemsPerPage]);
 
   useEffect(() => {
     fetchData(currentPage);
-  }, [currentPage, searchTerm, dateRange.from, dateRange.to]);
+  }, [fetchData, currentPage]);
 
   // Handler untuk pagination
   const handlePageChange = (page) => {
@@ -831,7 +807,15 @@ export default function PengeluaranPage() {
   // --- Render ---
   return (
     <div className="flex w-full flex-col">
-      <PengeluaranHeader onAdd={openNewDialog} />
+      <PageHeader
+        title="Manajemen Pengeluaran"
+        description="Kelola pengeluaran operasional — BBM, gaji sopir, perawatan, dan lainnya."
+      >
+        <Button onClick={openNewDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Pengeluaran
+        </Button>
+      </PageHeader>
 
       <PengeluaranFilters
         searchTerm={searchTerm}

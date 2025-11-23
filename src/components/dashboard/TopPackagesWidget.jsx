@@ -120,10 +120,10 @@ export function TopPackagesWidget({ incomeData, loading }) {
   }, {});
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <PieChart className="h-4 w-4" />
+          <PieChart className="h-5 w-5 text-primary" />
           Top 5 Paket Jasa Terlaris
         </CardTitle>
       </CardHeader>
@@ -207,24 +207,29 @@ export function TopPackagesWidget({ incomeData, loading }) {
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-4 h-4 rounded-full"
+                    className="w-4 h-4 rounded-full shrink-0"
                     style={{
                       backgroundColor: chartColors[index % chartColors.length],
                     }}
                   />
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
                     {index + 1}
                   </div>
-                  <div className="space-y-1">
-                    <div className="font-medium text-sm">{pkg.packageName}</div>
+                  <div className="space-y-1 min-w-0">
+                    <div className="font-medium text-sm truncate">
+                      {pkg.packageName}
+                    </div>
                     <Badge
-                      className={`text-xs ${PACKAGE_TYPE_COLORS[pkg.packageType]}`}
+                      variant="secondary"
+                      className={`text-[10px] px-1.5 py-0.5 font-normal ${
+                        PACKAGE_TYPE_COLORS[pkg.packageType]
+                      }`}
                     >
                       {PACKAGE_TYPE_LABELS[pkg.packageType]}
                     </Badge>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <div className="font-semibold text-sm">
                     {formatCurrency(pkg.totalRevenue)}
                   </div>
@@ -238,16 +243,16 @@ export function TopPackagesWidget({ incomeData, loading }) {
         </div>
 
         {incomeData.summary && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-6 pt-4 border-t">
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <div className="text-lg font-semibold text-primary">
+                <div className="text-2xl font-bold text-primary">
                   {incomeData.summary.totalPackages}
                 </div>
                 <div className="text-xs text-muted-foreground">Total Paket</div>
               </div>
               <div>
-                <div className="text-lg font-semibold text-primary">
+                <div className="text-2xl font-bold text-primary">
                   {formatCurrency(incomeData.summary.totalRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground">

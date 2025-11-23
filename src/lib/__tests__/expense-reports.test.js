@@ -260,6 +260,7 @@ describe("Excel Export Functionality", () => {
           }
         };
 
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         React.useEffect(() => {
           capturedFunction = exportToExcelFunction;
         }, []);

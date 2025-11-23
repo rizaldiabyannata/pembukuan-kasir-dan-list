@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { useActionLoading } from "@/hooks/useActionLoading";
-import ArmadaHeader from "@/components/armada/ArmadaHeader";
+import { PageHeader } from "@/components/ui/page-header";
+import { PlusCircle } from "lucide-react";
 import ArmadaFilters from "@/components/armada/ArmadaFilters";
 import ArmadaCard from "@/components/armada/ArmadaCard";
 import ArmadaDialog from "@/components/armada/ArmadaDialog";
@@ -190,7 +191,15 @@ export default function ArmadaPage() {
 
   return (
     <div>
-      <ArmadaHeader onAdd={openNewArmadaDialog} />
+      <PageHeader
+        title="Manajemen Armada"
+        description="Kelola armada kendaraan Anda — tambah, edit, dan pantau status ketersediaan."
+      >
+        <Button onClick={openNewArmadaDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Armada
+        </Button>
+      </PageHeader>
 
       <ArmadaFilters
         searchTerm={searchTerm}

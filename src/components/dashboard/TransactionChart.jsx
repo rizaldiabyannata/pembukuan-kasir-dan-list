@@ -8,6 +8,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { TrendingUp, Loader2 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export function TransactionChart({ data, period, loading }) {
   console.log("TransactionChart - data:", data);
@@ -49,10 +58,6 @@ export function TransactionChart({ data, period, loading }) {
       </Card>
     );
   }
-
-  // Find max values for scaling
-  const maxCount = Math.max(...data.map((d) => d.count));
-  const maxRevenue = Math.max(...data.map((d) => d.revenue));
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("id-ID", {
@@ -102,44 +107,21 @@ export function TransactionChart({ data, period, loading }) {
     firstHalfAvg > 0
       ? (((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100).toFixed(1)
       : secondHalfAvg > 0
-        ? "100.0"
-        : "0.0";
+      ? "100.0"
+      : "0.0";
 
   const isGrowing = secondHalfAvg > firstHalfAvg;
 
-  // Calculate Y-axis labels with better scaling
-  const getYAxisLabels = (max) => {
-    if (max <= 0) return [0, 0, 0, 0, 0];
-
-    // For very small numbers, use fixed intervals
-    if (max <= 2) {
-      return [4, 3, 2, 1, 0];
-    } else if (max <= 4) {
-      return [5, 4, 3, 2, 0];
-    } else if (max <= 8) {
-      return [10, 8, 6, 4, 0];
-    } else if (max <= 10) {
-      return [12, 9, 6, 3, 0];
-    }
-
-    // For larger numbers, use nice intervals
-    let niceMax = Math.ceil(max * 1.1); // 10% padding
-
-    // Round to nearest 5, 10, 20, 50, 100, etc.
-    const magnitude = Math.pow(10, Math.floor(Math.log10(niceMax)));
-    const normalized = niceMax / magnitude;
-
-    if (normalized <= 1) niceMax = magnitude;
-    else if (normalized <= 2) niceMax = 2 * magnitude;
-    else if (normalized <= 5) niceMax = 5 * magnitude;
-    else niceMax = 10 * magnitude;
-
-    const step = niceMax / 4;
-    return [niceMax, niceMax - step, niceMax - 2 * step, niceMax - 3 * step, 0];
-  };
-
-  const yAxisLabels = getYAxisLabels(maxCount);
-  const yAxisMax = yAxisLabels[0];
+  // Prepare data for Recharts
+  const chartData = data.map((item) => ({
+    ...item,
+    dateLabel:
+      period === "today"
+        ? item.date.split(":")[0] + ":00"
+        : period === "month"
+        ? item.date.split("-").pop()
+        : item.date,
+  }));
 
   return (
     <Card>
@@ -166,83 +148,63 @@ export function TransactionChart({ data, period, loading }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Bar Chart dengan Grid Lines */}
-          <div className="relative">
-            {/* Chart area with grid */}
-            <div className="relative">
-              {/* Horizontal grid lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none mb-12">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-px bg-gray-200" />
-                ))}
-              </div>
-
-              {/* Bars */}
-              <div className="h-[250px] flex items-end justify-start gap-1 px-2 relative">
-                {data.map((item, index) => {
-                  // Calculate height in pixels directly using yAxisMax for proper scaling
-                  const heightInPixels = (item.count / yAxisMax) * 250;
-                  const minHeightPx = item.count > 0 ? 15 : 0; // Minimum 15px if there's data
-                  const displayHeightPx = Math.max(heightInPixels, minHeightPx);
-
-                  return (
-                    <div
-                      key={index}
-                      className="flex-1 flex flex-col items-center gap-2 group"
-                      style={{ maxWidth: data.length > 15 ? "40px" : "60px" }}
-                    >
-                      <div className="relative w-full">
-                        <div
-                          className="w-full bg-blue-600 hover:bg-blue-700 rounded-t-md transition-all cursor-pointer relative shadow-sm"
-                          style={{ height: `${displayHeightPx}px` }}
-                        >
-                          {/* Tooltip on hover */}
-                          <div className="absolute -top-20 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-gray-900 text-white px-3 py-2 rounded shadow-lg z-10 text-center pointer-events-none">
-                            <div className="text-xs font-medium mb-1">
-                              {item.date}
-                            </div>
-                            <div className="text-sm font-bold">
-                              {item.count} transaksi
-                            </div>
-                            <div className="text-xs text-gray-300 mt-1">
-                              {formatCurrency(item.revenue)}
-                            </div>
+          {/* Recharts Bar Chart */}
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="dateLabel"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={10}
+                />
+                <YAxis
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => value}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgba(0,0,0,0.05)" }}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-popover border rounded-lg shadow-lg p-3 text-sm">
+                          <div className="font-semibold mb-1">{data.date}</div>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">
+                              Transaksi:
+                            </span>
+                            <span className="font-medium">{data.count}</span>
                           </div>
-
-                          {/* Count label on bar - only show if bar is tall enough */}
-                          {item.count > 0 && (
-                            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs font-bold text-white">
-                              {item.count}
-                            </div>
-                          )}
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">
+                              Pendapatan:
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(data.revenue)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-
-                      {/* X-axis label */}
-                      <span className="text-[10px] text-muted-foreground w-full text-center font-medium block">
-                        {period === "today"
-                          ? item.date.split(":")[0] + ":00"
-                          : period === "month"
-                            ? item.date.split("-").pop()
-                            : item.date}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* X-axis line */}
-              <div className="h-px bg-gray-300 mt-2" />
-
-              {/* X-axis label */}
-              <div className="text-center text-xs text-muted-foreground mt-2 font-medium">
-                {period === "today"
-                  ? "Jam"
-                  : period === "month"
-                    ? "Tanggal"
-                    : "Bulan"}
-              </div>
-            </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={50}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
           {/* Summary Stats */}

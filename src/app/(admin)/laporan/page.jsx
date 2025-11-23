@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/ui/page-header";
 import LaporanFilter from "@/components/laporan/LaporanFilter";
 import LaporanTransaksiTab from "@/components/laporan/LaporanTransaksiTab";
 import LaporanLabaRugiTab from "@/components/laporan/LaporanLabaRugiTab";
@@ -101,6 +102,10 @@ export default function LaporanPage() {
 
   return (
     <div className="flex w-full flex-col gap-4">
+      <PageHeader
+        title="Laporan Keuangan"
+        description="Ringkasan kinerja bisnis, pemasukan, pengeluaran, dan laba rugi."
+      />
       <LaporanFilter
         dateRange={dateRange}
         onDateChange={setDateRange}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,27 +38,7 @@ import {
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-
-const ACTION_COLORS = {
-  CREATE: "bg-green-100 text-green-800",
-  UPDATE: "bg-blue-100 text-blue-800",
-  DELETE: "bg-red-100 text-red-800",
-  LOGIN: "bg-purple-100 text-purple-800",
-  LOGOUT: "bg-gray-100 text-gray-800",
-  COMPLETE: "bg-indigo-100 text-indigo-800",
-  VIEW: "bg-yellow-100 text-yellow-800",
-};
-
-const ACTION_LABELS = {
-  CREATE: "Buat",
-  UPDATE: "Update",
-  DELETE: "Hapus",
-  LOGIN: "Login",
-  LOGOUT: "Logout",
-  COMPLETE: "Selesai",
-  VIEW: "Lihat",
-};
+import { PageHeader } from "@/components/ui/page-header";
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState([]);
@@ -66,9 +46,11 @@ export default function AuditLogPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 50,
+    limit: 10,
     totalCount: 0,
     totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
   });
 
   // Filters
@@ -79,82 +61,46 @@ export default function AuditLogPage() {
     to: undefined,
   });
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Build query params
       const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
+        page: pagination.page,
+        limit: pagination.limit,
       });
 
-      if (actionFilter && actionFilter !== "ALL")
-        params.append("action", actionFilter);
-      if (resourceFilter && resourceFilter !== "ALL")
-        params.append("resource", resourceFilter);
+      if (actionFilter !== "ALL") params.append("action", actionFilter);
+      if (resourceFilter !== "ALL") params.append("resource", resourceFilter);
+      if (dateRange.from) params.append("from", dateRange.from.toISOString());
+      if (dateRange.to) params.append("to", dateRange.to.toISOString());
 
-      if (dateRange.from) {
-        const formatDate = (date) => {
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const day = String(date.getDate()).padStart(2, "0");
-          return `${year}-${month}-${day}`;
-        };
-        params.append("from", formatDate(dateRange.from));
-        if (dateRange.to) {
-          params.append("to", formatDate(dateRange.to));
-        }
+      // Fetch logs
+      const logsRes = await fetch(`/api/audit-logs?${params.toString()}`);
+      const logsData = await logsRes.json();
+
+      if (logsData.success) {
+        setLogs(logsData.data.logs);
+        setPagination(logsData.data.pagination);
       }
 
-      const res = await fetch(`/api/audit-logs?${params.toString()}`, {
-        credentials: "include",
-      });
+      // Fetch stats (only if filters change or first load)
+      const statsRes = await fetch(`/api/audit-logs/stats?${params.toString()}`);
+      const statsData = await statsRes.json();
 
-      if (!res.ok) throw new Error("Gagal mengambil audit logs");
-
-      const result = await res.json();
-      setLogs(result.data.logs || []);
-      setPagination(result.data.pagination);
-    } catch (err) {
-      console.error("Error fetching audit logs:", err);
+      if (statsData.success) {
+        setStats(statsData.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch audit logs:", error);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const params = new URLSearchParams();
-
-      if (dateRange.from) {
-        const formatDate = (date) => {
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const day = String(date.getDate()).padStart(2, "0");
-          return `${year}-${month}-${day}`;
-        };
-        params.append("from", formatDate(dateRange.from));
-        if (dateRange.to) {
-          params.append("to", formatDate(dateRange.to));
-        }
-      }
-
-      const res = await fetch(`/api/audit-logs/stats?${params.toString()}`, {
-        credentials: "include",
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        setStats(result.data || null);
-      }
-    } catch (err) {
-      console.error("Error fetching stats:", err);
-    }
-  };
+  }, [pagination.page, pagination.limit, actionFilter, resourceFilter, dateRange]);
 
   useEffect(() => {
     fetchAuditLogs();
-    fetchStats();
-  }, [pagination.page, actionFilter, resourceFilter, dateRange]);
+  }, [fetchAuditLogs]);
 
   const handlePageChange = (newPage) => {
     setPagination((prev) => ({ ...prev, page: newPage }));
@@ -171,21 +117,30 @@ export default function AuditLogPage() {
     return format(new Date(timestamp), "dd MMM yyyy HH:mm:ss", { locale: id });
   };
 
+  const ACTION_COLORS = {
+    CREATE: "bg-green-100 text-green-800",
+    UPDATE: "bg-blue-100 text-blue-800",
+    DELETE: "bg-red-100 text-red-800",
+    LOGIN: "bg-purple-100 text-purple-800",
+    LOGOUT: "bg-gray-100 text-gray-800",
+    COMPLETE: "bg-teal-100 text-teal-800",
+  };
+
+  const ACTION_LABELS = {
+    CREATE: "Buat",
+    UPDATE: "Update",
+    DELETE: "Hapus",
+    LOGIN: "Login",
+    LOGOUT: "Logout",
+    COMPLETE: "Selesai",
+  };
+
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
-      <header className="flex items-center gap-4 p-4 border-b">
-        <SidebarTrigger className="-ml-1" />
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="h-6 w-6" />
-            Audit Log
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Log aktivitas sistem untuk monitoring dan keamanan
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        title="Audit Log"
+        description="Log aktivitas sistem untuk monitoring dan keamanan."
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto p-6 space-y-6">

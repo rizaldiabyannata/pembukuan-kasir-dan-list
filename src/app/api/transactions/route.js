@@ -196,7 +196,12 @@ async function handleCreateTransaction(request) {
     });
 
     // Log audit event
-    await logTransactionEvent(request.auth.user, "CREATE", result, request);
+    try {
+      await logTransactionEvent(request.auth.user, "CREATE", result, request);
+    } catch (auditError) {
+      console.error("Failed to log audit event:", auditError);
+      // Don't fail the request if audit logging fails, but log it
+    }
 
     return successResponse(result, 201);
   } catch (error) {
@@ -211,7 +216,11 @@ async function handleCreateTransaction(request) {
       return errorResponse("Gagal membuat invoice code unik. Coba lagi.", 409);
     }
 
-    return errorResponse("Gagal membuat transaksi", 500);
+    // Return the actual error message if available, otherwise generic
+    return errorResponse(
+      error.message || "Gagal membuat transaksi",
+      500
+    );
   }
 }
 

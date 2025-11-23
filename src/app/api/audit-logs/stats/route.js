@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 async function handleGetAuditStats(request) {
   try {
     // Only ADMIN can view audit logs
-    if (!permissions.canViewAuditLogs(request.auth.user)) {
+    if (!permissions.isAdmin(request.auth.user)) {
       return errorResponse("Hanya admin yang dapat melihat audit log", 403);
     }
 

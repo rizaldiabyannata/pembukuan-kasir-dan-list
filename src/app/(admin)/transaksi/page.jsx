@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 import { useActionLoading } from "@/hooks/useActionLoading";
-import TransaksiHeader from "@/components/transaksi/TransaksiHeader";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 import TransaksiFilters from "@/components/transaksi/TransaksiFilters";
 import TransaksiTable from "@/components/transaksi/TransaksiTable";
 import TransaksiDialog from "@/components/transaksi/TransaksiDialog";
@@ -1207,7 +1209,15 @@ export default function TransaksiPage() {
   // --- Render ---
   return (
     <div className="flex w-full flex-col">
-      <TransaksiHeader onAdd={openNewDialog} />
+            <PageHeader
+        title="Manajemen Transaksi"
+        description="Kelola transaksi sewa kendaraan — input, edit, dan pantau status pembayaran."
+      >
+        <Button onClick={openNewDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Input Transaksi Baru
+        </Button>
+      </PageHeader>
 
       <TransaksiFilters
         searchTerm={searchTerm}

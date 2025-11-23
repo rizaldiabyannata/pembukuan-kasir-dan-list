@@ -5,9 +5,12 @@ import { toast } from "sonner";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 import { useActionLoading } from "@/hooks/useActionLoading";
 import { CardSkeleton } from "@/components/ui/card-skeleton";
+import { PageHeader } from "@/components/ui/page-header";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 
 import SopirCard from "@/components/sopir/SopirCard";
-import SopirTopHeader from "@/components/sopir/SopirTopHeader";
 import SopirDialog from "@/components/sopir/SopirDialog";
 
 export default function SopirPage() {
@@ -165,12 +168,25 @@ export default function SopirPage() {
 
   return (
     <div>
+      <PageHeader
+        title="Manajemen Sopir"
+        description="Kelola sopir Anda — tambah, edit, dan lihat status tugas."
+      >
+        <Button onClick={openNewDriverDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Sopir
+        </Button>
+      </PageHeader>
+
       <div className="flex flex-col gap-4 p-4 pt-0">
-        <SopirTopHeader
-          onAdd={openNewDriverDialog}
-          searchValue={searchTerm}
-          onSearchChange={handleSearchChange}
-        />
+        <div className="flex items-end gap-4 mb-4">
+          <Input
+            placeholder="Cari nama atau no. HP..."
+            className="max-w-sm"
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+        </div>
         <div>
           {isLoading ? (
             <CardSkeleton count={6} variant="detailed" />

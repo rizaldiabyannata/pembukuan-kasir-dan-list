@@ -16,7 +16,7 @@ export function IncentiveRecipientsWidget({
   const [error, setError] = useState(null);
   const authFetch = useAuthFetch();
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -43,11 +43,11 @@ export function IncentiveRecipientsWidget({
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch, period]);
 
   useEffect(() => {
     fetchData();
-  }, [period]);
+  }, [fetchData]);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("id-ID", {

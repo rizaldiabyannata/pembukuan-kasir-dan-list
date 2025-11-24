@@ -1,5 +1,19 @@
 import "@testing-library/jest-dom";
 import fc from "fast-check";
+import { TextEncoder, TextDecoder } from "util";
+
+// Polyfill for TextEncoder/TextDecoder (required for jose library)
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
+// Polyfill for structuredClone (required for jose library in Node < 17)
+if (typeof global.structuredClone === "undefined") {
+  global.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
+}
+
+// Set up environment variables for testing
+process.env.JWT_SECRET =
+  "test-jwt-secret-key-for-testing-purposes-minimum-32-characters";
 
 // Configure fast-check for property-based testing
 fc.configureGlobal({

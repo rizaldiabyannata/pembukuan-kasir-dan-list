@@ -137,6 +137,15 @@ export default function TransaksiPage() {
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
 
+  // Debug: Log state changes for complete dialog
+  useEffect(() => {
+    console.log("🔄 [DEBUG] isCompleteOpen changed:", isCompleteOpen);
+  }, [isCompleteOpen]);
+
+  useEffect(() => {
+    console.log("🔄 [DEBUG] completingData changed:", completingData);
+  }, [completingData]);
+
   // Display error message from query parameters
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -641,16 +650,54 @@ export default function TransaksiPage() {
   };
 
   const openCompleteDialog = (item) => {
+    console.log("🔍 [DEBUG] openCompleteDialog called with item:", item);
+
+    // Validation: Check for null/undefined item
+    if (!item) {
+      console.error(
+        "❌ [ERROR] openCompleteDialog called with null/undefined item"
+      );
+      toast.error("Error", {
+        description: "Data transaksi tidak tersedia",
+      });
+      return;
+    }
+
+    // Validation: Check for required fields
+    if (!item.id) {
+      console.error("❌ [ERROR] Transaction missing required field: id");
+      toast.error("Error", {
+        description: "Data transaksi tidak valid - ID tidak ditemukan",
+      });
+      return;
+    }
+
+    if (!item.invoice_code) {
+      console.error(
+        "❌ [ERROR] Transaction missing required field: invoice_code"
+      );
+      toast.error("Error", {
+        description:
+          "Data transaksi tidak valid - Kode invoice tidak ditemukan",
+      });
+      return;
+    }
+
     // Check if transaction is already completed
     if (item.actual_checkin_datetime) {
+      console.log("⚠️ [DEBUG] Transaction already completed, showing warning");
       toast.warning("Transaksi Sudah Diselesaikan", {
         description: `Transaksi ini telah diselesaikan pada ${new Date(item.actual_checkin_datetime).toLocaleString("id-ID")}`,
       });
       return;
     }
 
+    console.log("✅ [DEBUG] Setting completingData and opening dialog");
     setCompletingData(item);
     setIsCompleteOpen(true);
+    console.log(
+      "✅ [DEBUG] State updates called - completingData set, isCompleteOpen set to true"
+    );
   };
 
   const handleDelete = async (id) => {
@@ -1134,20 +1181,83 @@ export default function TransaksiPage() {
       completingData,
     });
 
-    if (!completingData || !completingData.id) {
-      console.error("No transaction data available for completion");
+    // Enhanced validation for completingData
+    if (!completingData) {
+      console.error("❌ [ERROR] No transaction data available for completion");
       toast.error("Error", {
-        description: "Data transaksi tidak tersedia",
+        description:
+          "Data transaksi tidak tersedia. Silakan tutup dialog dan coba lagi.",
       });
       return;
     }
 
-    if (!completionData || !completionData.actual_checkin_datetime) {
-      console.error("Missing required completion data:", completionData);
+    if (!completingData.id) {
+      console.error("❌ [ERROR] Transaction data missing ID field");
       toast.error("Error", {
+        description: "Data transaksi tidak valid - ID tidak ditemukan",
+      });
+      return;
+    }
+
+    // Enhanced validation for completionData
+    if (!completionData) {
+      console.error("❌ [ERROR] No completion data provided");
+      toast.error("Validasi Gagal", {
+        description: "Data penyelesaian transaksi tidak tersedia",
+      });
+      return;
+    }
+
+    if (!completionData.actual_checkin_datetime) {
+      console.error(
+        "❌ [ERROR] Missing required field: actual_checkin_datetime"
+      );
+      toast.error("Validasi Gagal", {
         description: "Waktu check-in aktual harus diisi",
       });
       return;
+    }
+
+    // Validate actual_checkin_datetime is a valid date
+    const actualCheckinDate = new Date(completionData.actual_checkin_datetime);
+    if (isNaN(actualCheckinDate.getTime())) {
+      console.error(
+        "❌ [ERROR] Invalid date format for actual_checkin_datetime"
+      );
+      toast.error("Validasi Gagal", {
+        description: "Format waktu check-in aktual tidak valid",
+      });
+      return;
+    }
+
+    // Validate actual_overtime_cost is a number if provided
+    if (
+      completionData.actual_overtime_cost !== undefined &&
+      completionData.actual_overtime_cost !== null
+    ) {
+      const overtimeCost = Number(completionData.actual_overtime_cost);
+      if (isNaN(overtimeCost) || overtimeCost < 0) {
+        console.error("❌ [ERROR] Invalid actual_overtime_cost value");
+        toast.error("Validasi Gagal", {
+          description: "Biaya overtime harus berupa angka positif atau nol",
+        });
+        return;
+      }
+    }
+
+    // Validate remaining_payment is a number if provided
+    if (
+      completionData.remaining_payment !== undefined &&
+      completionData.remaining_payment !== null
+    ) {
+      const remainingPayment = Number(completionData.remaining_payment);
+      if (isNaN(remainingPayment) || remainingPayment < 0) {
+        console.error("❌ [ERROR] Invalid remaining_payment value");
+        toast.error("Validasi Gagal", {
+          description: "Sisa pembayaran harus berupa angka positif atau nol",
+        });
+        return;
+      }
     }
 
     setIsCompletingTransaction(true);
@@ -1173,11 +1283,30 @@ export default function TransaksiPage() {
       if (!res.ok) {
         const errorData = await res.json();
         console.error("API error response:", errorData);
-        // Error response structure: { error: "message", details: ..., timestamp: ... }
-        const errorMessage =
-          errorData.error ||
-          errorData.message ||
-          "Failed to complete transaction";
+
+        // Enhanced error message handling
+        let errorMessage = "Gagal menyelesaikan transaksi";
+
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.details) {
+          errorMessage = `${errorMessage}: ${JSON.stringify(errorData.details)}`;
+        }
+
+        // Handle specific error cases
+        if (res.status === 400) {
+          errorMessage = `Validasi gagal: ${errorMessage}`;
+        } else if (res.status === 404) {
+          errorMessage = "Transaksi tidak ditemukan";
+        } else if (res.status === 403) {
+          errorMessage =
+            "Anda tidak memiliki akses untuk menyelesaikan transaksi ini";
+        } else if (res.status === 500) {
+          errorMessage = "Terjadi kesalahan server. Silakan coba lagi.";
+        }
+
         throw new Error(errorMessage);
       }
 
@@ -1195,12 +1324,24 @@ export default function TransaksiPage() {
       await fetchData(1); // Reset to first page after successful operation
     } catch (err) {
       console.error("Failed to complete transaction:", err);
-      // Error: keep dialog open and show error message
+
+      // Enhanced error handling - dialog stays open
+      let userFriendlyMessage = err.message;
+
+      // Handle network errors
+      if (err.name === "TypeError" && err.message.includes("fetch")) {
+        userFriendlyMessage =
+          "Gagal menghubungi server. Periksa koneksi internet Anda.";
+      }
+
+      // Error: keep dialog open and show user-friendly error message
       toast.error("Gagal Menyelesaikan Transaksi", {
-        description:
-          err.message || "Terjadi kesalahan saat menyelesaikan transaksi",
+        description: userFriendlyMessage,
+        duration: 5000, // Show error longer for user to read
       });
+
       // Dialog stays open so user can retry or fix the issue
+      // isCompleteOpen remains true, completingData remains set
     } finally {
       setIsCompletingTransaction(false);
     }
@@ -1209,7 +1350,7 @@ export default function TransaksiPage() {
   // --- Render ---
   return (
     <div className="flex w-full flex-col">
-            <PageHeader
+      <PageHeader
         title="Manajemen Transaksi"
         description="Kelola transaksi sewa kendaraan — input, edit, dan pantau status pembayaran."
       >
@@ -1281,6 +1422,15 @@ export default function TransaksiPage() {
         data={viewingData}
         calculatedData={calculatedData}
       />
+
+      {/* Debug: Log props before rendering TransaksiCompleteModal */}
+      {console.log("📋 [DEBUG] Rendering TransaksiCompleteModal with props:", {
+        open: isCompleteOpen,
+        transaction: completingData
+          ? { id: completingData.id, invoice_code: completingData.invoice_code }
+          : null,
+        isLoading: isCompletingTransaction,
+      })}
 
       <TransaksiCompleteModal
         open={isCompleteOpen}

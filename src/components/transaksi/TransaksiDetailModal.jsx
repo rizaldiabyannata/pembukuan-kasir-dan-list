@@ -64,6 +64,9 @@ export default function TransaksiDetailModal({
 }) {
   if (!data) return null;
 
+  // Check if transaction is completed
+  const isCompleted = !!data.actual_checkin_datetime;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -162,22 +165,22 @@ export default function TransaksiDetailModal({
               value={`${formatCurrency(data.overtime_rate_per_hour)} /jam`}
             />
             {data.dp_amount && data.dp_amount > 0 && (
-              <>
-                <DetailItem
-                  label="Jumlah DP Diterima"
-                  value={formatCurrency(data.dp_amount)}
-                />
-                <DetailItem
-                  label="Sisa Tagihan"
-                  value={
-                    <span className="font-semibold text-orange-600">
-                      {formatCurrency(
-                        calculatedData.totalPendapatan - data.dp_amount
-                      )}
-                    </span>
-                  }
-                />
-              </>
+              <DetailItem
+                label="Jumlah DP Diterima"
+                value={formatCurrency(data.dp_amount)}
+              />
+            )}
+            {!isCompleted && data.dp_amount && data.dp_amount > 0 && (
+              <DetailItem
+                label="Sisa Tagihan"
+                value={
+                  <span className="font-semibold text-orange-600">
+                    {formatCurrency(
+                      calculatedData.totalPendapatan - data.dp_amount
+                    )}
+                  </span>
+                }
+              />
             )}
           </div>
         </div>

@@ -116,8 +116,35 @@ async function handleLogin(request) {
     // Update last login info
     await updateLastLogin(user.id, ipAddress);
 
-    // Create session
-    const session = await createSession(user.id, ipAddress, userAgent);
+    // Create session with enhanced error handling
+    let session;
+    try {
+      session = await createSession(user.id, ipAddress, userAgent);
+    } catch (error) {
+      // Log session creation failure
+      console.error(
+        `[Login] Session creation failed for user ${user.id}:`,
+        error.message
+      );
+      await logAuthEvent(user.id, "LOGIN", ipAddress, userAgent, false);
+
+      // Check if this is a session creation failure after max retries
+      if (error.cause === "SESSION_CREATION_FAILED") {
+        return errorResponse(
+          "Unable to create session. Please try again.",
+          500,
+          {
+            code: "SESSION_CREATION_FAILED",
+          }
+        );
+      }
+
+      // Generic error for other session creation issues
+      return errorResponse(
+        "An error occurred while creating your session. Please try again.",
+        500
+      );
+    }
 
     // Log successful login
     await logAuthEvent(user.id, "LOGIN", ipAddress, userAgent, true);
@@ -145,12 +172,14 @@ async function handleLogin(request) {
 
     // Set session cookie (httpOnly, secure only if HTTPS)
     const isProduction = process.env.NODE_ENV === "production";
-    const isHttps = process.env.NEXT_PUBLIC_BASE_URL?.startsWith("https://");
+    const appUrl =
+      process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
+    const isHttps = appUrl?.startsWith("https://");
 
     const cookieOptions = {
       httpOnly: true,
       secure: isProduction && isHttps, // Only secure if production AND using HTTPS
-      sameSite: isProduction ? "lax" : "lax",
+      sameSite: "lax", // Always use 'lax' for better compatibility
       maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
       path: "/",
     };
@@ -165,11 +194,12 @@ async function handleLogin(request) {
     // Debug log
     console.log("🍪 Setting cookie:", {
       name: "session",
+      roleCookie: cookieName,
       value: session.token.substring(0, 20) + "...",
       options: cookieOptions,
       isProduction,
       isHttps,
-      url: process.env.NEXT_PUBLIC_BASE_URL || "not set",
+      url: appUrl || "not set",
     });
 
     return response;

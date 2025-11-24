@@ -284,3 +284,125 @@ export function formatCurrencyCompact(amount) {
     notation: "compact",
   }).format(amount);
 }
+/**
+ * Map Expense Categories to Financial Statement Sections
+ * COGS: Cost of Goods Sold (Biaya Langsung)
+ * OPEX: Operating Expenses (Biaya Operasional Kantor)
+ */
+export const EXPENSE_CATEGORIES_MAP = {
+  // COGS - Direct Costs
+  BBM: "COGS",
+  GAJI_SOPIR: "COGS",
+  PERAWATAN_ARMADA: "COGS",
+  KONSUMSI: "COGS", // Konsumsi during trips usually
+
+  // OPEX - Operating Expenses
+  LISTRIK: "OPEX",
+  INTERNET: "OPEX",
+  PAKET_DATA: "OPEX",
+  GAJI_STAF_OPERASIONAL: "OPEX",
+  GAJI_STAF_ADMIN: "OPEX",
+  INSENTIF_BONUS: "OPEX",
+  PAJAK: "OPEX",
+  ALAT_TULIS_KANTOR: "OPEX",
+  KOMPUTER_SUPPLIES: "OPEX",
+  OPERASIONAL_LAINNYA: "OPEX",
+  LAINNYA: "OPEX",
+};
+
+/**
+ * Calculate Income Statement (Laporan Laba Rugi)
+ * Standard Structure: Revenue -> COGS -> Gross Profit -> OpEx -> Net Profit
+ * @param {Array} transactions - List of approved transactions
+ * @param {Array} expenses - List of approved expenses
+ * @returns {Object} Income Statement Data
+ */
+export function calculateIncomeStatement(transactions, expenses) {
+  // 1. Calculate Revenue (Pendapatan)
+  let revenue = {
+    rental: 0, // Sewa Mobil
+    overtime: 0, // Overtime
+    total: 0,
+  };
+
+  transactions.forEach((tx) => {
+    const financials = calculateTransactionFinancials(tx);
+    revenue.rental += financials.totalPendapatan - financials.totalOvertimeFee;
+    revenue.overtime += financials.totalOvertimeFee;
+  });
+  revenue.total = revenue.rental + revenue.overtime;
+
+  // 2. Calculate COGS (Harga Pokok Penjualan)
+  let cogs = {
+    fuel: 0, // BBM
+    driverSalary: 0, // Gaji Sopir
+    maintenance: 0, // Perawatan Armada
+    consumption: 0, // Konsumsi
+    other: 0, // Lainnya (if any mapped to COGS)
+    total: 0,
+  };
+
+  // 3. Calculate OpEx (Biaya Operasional)
+  let opex = {
+    officeSalaries: 0, // Gaji Staff
+    utilities: 0, // Listrik, Internet
+    supplies: 0, // ATK, Komputer
+    marketing: 0, // Iklan/Promosi (if any)
+    other: 0, // Lainnya
+    total: 0,
+  };
+
+  expenses.forEach((exp) => {
+    const type = EXPENSE_CATEGORIES_MAP[exp.category] || "OPEX"; // Default to OPEX if unknown
+    const amount = exp.amount || 0;
+
+    if (type === "COGS") {
+      cogs.total += amount;
+      if (exp.category === "BBM") cogs.fuel += amount;
+      else if (exp.category === "GAJI_SOPIR") cogs.driverSalary += amount;
+      else if (exp.category === "PERAWATAN_ARMADA") cogs.maintenance += amount;
+      else if (exp.category === "KONSUMSI") cogs.consumption += amount;
+      else cogs.other += amount;
+    } else {
+      opex.total += amount;
+      if (
+        [
+          "GAJI_STAF_OPERASIONAL",
+          "GAJI_STAF_ADMIN",
+          "INSENTIF_BONUS",
+        ].includes(exp.category)
+      ) {
+        opex.officeSalaries += amount;
+      } else if (["LISTRIK", "INTERNET", "PAKET_DATA"].includes(exp.category)) {
+        opex.utilities += amount;
+      } else if (
+        ["ALAT_TULIS_KANTOR", "KOMPUTER_SUPPLIES"].includes(exp.category)
+      ) {
+        opex.supplies += amount;
+      } else {
+        opex.other += amount;
+      }
+    }
+  });
+
+  // 4. Calculate Profits
+  const grossProfit = revenue.total - cogs.total;
+  const netProfit = grossProfit - opex.total;
+
+  // 5. Calculate Margins
+  const grossMargin =
+    revenue.total > 0 ? (grossProfit / revenue.total) * 100 : 0;
+  const netMargin = revenue.total > 0 ? (netProfit / revenue.total) * 100 : 0;
+
+  return {
+    revenue,
+    cogs,
+    grossProfit,
+    opex,
+    netProfit,
+    margins: {
+      gross: grossMargin.toFixed(2),
+      net: netMargin.toFixed(2),
+    },
+  };
+}

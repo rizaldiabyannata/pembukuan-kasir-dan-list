@@ -8,7 +8,10 @@ import {
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { calculateTransactionFinancials } from "@/lib/accounting";
+import {
+  calculateTransactionFinancials,
+  calculateIncomeStatement,
+} from "@/lib/accounting";
 import { logReportAccess } from "@/lib/audit";
 
 /**
@@ -69,55 +72,45 @@ async function handleGetSummaryReport(request) {
       },
     });
 
-    let totalPemasukanSewa = 0;
-    let totalBiayaOps = 0; // operational costs from tx-level fields removed
-    let totalLabaKotor = 0;
-
-    for (const tx of transactions) {
-      const financials = calculateTxFinancials(tx);
-      totalPemasukanSewa += financials.totalPendapatan;
-      totalBiayaOps += financials.totalBiayaOps;
-      totalLabaKotor += financials.labaKotor;
-
-      // BBM and driver fee are removed from transaction-level; skip rekap accumulation
-    }
-
-    const expenseAggregation = await prisma.expense.aggregate({
+    // Fetch detailed expenses for categorization
+    const expenses = await prisma.expense.findMany({
       where: {
         ...dateFilterEx,
         approval_status: "APPROVED",
       },
-      _sum: {
+      select: {
         amount: true,
+        category: true,
       },
     });
 
-    const totalBiayaKantor = expenseAggregation._sum.amount || 0;
+    // Calculate detailed income statement
+    const incomeStatement = calculateIncomeStatement(transactions, expenses);
 
     const laporanTransaksi = {
       totalTransaksi: transactions.length,
-      totalPemasukan: totalPemasukanSewa,
-      totalPengeluaranOps: totalBiayaOps,
-      totalLabaKotor: totalLabaKotor,
+      totalPemasukan: incomeStatement.revenue.total,
+      totalPengeluaranOps: incomeStatement.cogs.total, // COGS as operational costs
+      totalLabaKotor: incomeStatement.grossProfit,
     };
 
+    // Construct response matching the new structure but keeping backward compatibility where possible
     const laporanLabaRugi = {
-      totalPemasukanSewa: totalPemasukanSewa,
-      totalBiayaOps: totalBiayaOps,
-      totalBiayaKantor: totalBiayaKantor,
-      labaRugiBersih: totalPemasukanSewa - totalBiayaOps - totalBiayaKantor,
-      status:
-        totalPemasukanSewa - totalBiayaOps - totalBiayaKantor >= 0
-          ? "PROFIT"
-          : "LOSS",
-      profitMargin:
-        totalPemasukanSewa > 0
-          ? (
-              ((totalPemasukanSewa - totalBiayaOps - totalBiayaKantor) /
-                totalPemasukanSewa) *
-              100
-            ).toFixed(2) + "%"
-          : "0%",
+      // Detailed structure
+      revenue: incomeStatement.revenue,
+      cogs: incomeStatement.cogs,
+      grossProfit: incomeStatement.grossProfit,
+      opex: incomeStatement.opex,
+      netProfit: incomeStatement.netProfit,
+      margins: incomeStatement.margins,
+
+      // Backward compatibility fields (mapped to new logic)
+      totalPemasukanSewa: incomeStatement.revenue.total,
+      totalBiayaOps: incomeStatement.cogs.total,
+      totalBiayaKantor: incomeStatement.opex.total,
+      labaRugiBersih: incomeStatement.netProfit,
+      status: incomeStatement.netProfit >= 0 ? "PROFIT" : "LOSS",
+      profitMargin: incomeStatement.margins.net + "%",
     };
 
     // Log report access for audit trail

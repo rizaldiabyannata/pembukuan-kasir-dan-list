@@ -1635,35 +1635,6 @@ export async function exportPerformanceReport(
 }
 
 /**
- * Chart of Accounts mapping for tour and travel business
- */
-const CHART_OF_ACCOUNTS = {
-  // Revenue Accounts (4xxx)
-  REVENUE: {
-    4100: "Tour Package Revenue",
-    4200: "Car Rental Revenue",
-    4300: "Full Day Trip Revenue",
-    4400: "Custom Service Revenue",
-    4500: "Overtime Charges",
-  },
-  // Cost of Sales (5xxx)
-  COST_OF_SALES: {
-    5100: "Fuel Costs",
-    5200: "Driver Wages (Direct)",
-    5300: "Vehicle Maintenance (Direct)",
-  },
-  // Operating Expenses (6xxx)
-  OPERATING_EXPENSES: {
-    6100: "Administrative Salaries",
-    6200: "Office Rent",
-    6300: "Utilities",
-    6400: "Marketing",
-    6500: "Insurance",
-    6600: "Depreciation",
-  },
-};
-
-/**
  * Export income statement (Laporan Laba Rugi) with standard accounting format
  */
 export function exportIncomeStatement(data, dateRange) {
@@ -1829,4 +1800,224 @@ export function exportIncomeStatement(data, dateRange) {
   });
 
   return exportWorkbook(wb, `Laporan_Laba_Rugi`);
+}
+
+/**
+ * Export Financial Report (Laba Rugi) with detailed breakdown
+ *
+ * Generates a comprehensive Excel report showing Income Statement
+ * (Revenue, COGS, Gross Profit, OpEx, Net Profit)
+ *
+ * @param {Object} data - Report data from API
+ * @param {Object} dateRange - Date range for the report
+ */
+export async function exportFinancialReport(data, dateRange) {
+  const wb = createWorkbook();
+  const { laporanLabaRugi, laporanTransaksi, laporanPengeluaran } = data;
+
+  // 1. Income Statement Sheet (Laba Rugi)
+  const incomeStatementData = [
+    ["LAPORAN LABA RUGI"],
+    [`Periode: ${dateRange.from} s/d ${dateRange.to}`],
+    [],
+    ["KETERANGAN", "NILAI", "PERSENTASE"],
+    [],
+    ["PENDAPATAN (REVENUE)"],
+    ["Pendapatan Sewa", formatCurrencyForExcel(laporanLabaRugi.revenue.rental)],
+    ["Pendapatan Overtime", formatCurrencyForExcel(laporanLabaRugi.revenue.overtime)],
+    ["TOTAL PENDAPATAN", formatCurrencyForExcel(laporanLabaRugi.revenue.total), "100%"],
+    [],
+    ["HARGA POKOK PENJUALAN (COGS)"],
+    ["BBM", formatCurrencyForExcel(laporanLabaRugi.cogs.fuel)],
+    ["Gaji Sopir", formatCurrencyForExcel(laporanLabaRugi.cogs.driverSalary)],
+    ["Perawatan Armada", formatCurrencyForExcel(laporanLabaRugi.cogs.maintenance)],
+    ["Konsumsi", formatCurrencyForExcel(laporanLabaRugi.cogs.consumption)],
+    ["Lainnya (COGS)", formatCurrencyForExcel(laporanLabaRugi.cogs.other)],
+    [
+      "TOTAL COGS",
+      formatCurrencyForExcel(laporanLabaRugi.cogs.total),
+      calculatePercentage(laporanLabaRugi.cogs.total, laporanLabaRugi.revenue.total),
+    ],
+    [],
+    [
+      "LABA KOTOR (GROSS PROFIT)",
+      formatCurrencyForExcel(laporanLabaRugi.grossProfit),
+      `${laporanLabaRugi.margins.gross}%`,
+    ],
+    [],
+    ["BIAYA OPERASIONAL (OPEX)"],
+    ["Gaji Staff Kantor", formatCurrencyForExcel(laporanLabaRugi.opex.officeSalaries)],
+    ["Listrik, Air, Internet", formatCurrencyForExcel(laporanLabaRugi.opex.utilities)],
+    ["ATK & Komputer", formatCurrencyForExcel(laporanLabaRugi.opex.supplies)],
+    ["Lainnya (OpEx)", formatCurrencyForExcel(laporanLabaRugi.opex.other)],
+    [
+      "TOTAL OPEX",
+      formatCurrencyForExcel(laporanLabaRugi.opex.total),
+      calculatePercentage(laporanLabaRugi.opex.total, laporanLabaRugi.revenue.total),
+    ],
+    [],
+    [
+      "LABA BERSIH (NET PROFIT)",
+      formatCurrencyForExcel(laporanLabaRugi.netProfit),
+      `${laporanLabaRugi.margins.net}%`,
+    ],
+  ];
+
+  const incomeStyleMap = {
+    "0,0": "header",
+    "1,0": "subHeader",
+    "3,0": "header",
+    "3,1": "header",
+    "3,2": "header",
+    // Section Headers
+    "5,0": "subHeader",
+    "10,0": "subHeader",
+    "18,0": "total",
+    "20,0": "subHeader",
+    "26,0": "total",
+    "28,0": "total",
+  };
+
+  // Helper to apply currency styles
+  const applyCurrencyStyle = (rows) => {
+    rows.forEach((r) => {
+      incomeStyleMap[`${r},1`] = "currency";
+    });
+  };
+
+  // Helper to apply total styles
+  const applyTotalStyle = (rows) => {
+    rows.forEach((r) => {
+      incomeStyleMap[`${r},1`] = "total";
+      incomeStyleMap[`${r},2`] = "total";
+    });
+  };
+
+  applyCurrencyStyle([
+    6, 7, 11, 12, 13, 14, 15, 21, 22, 23, 24,
+  ]);
+  applyTotalStyle([8, 16, 18, 26, 28]);
+
+  // Color coding for Net Profit
+  incomeStyleMap["28,1"] = laporanLabaRugi.netProfit >= 0 ? "positive" : "negative";
+
+  addSheet(wb, "Laba Rugi", incomeStatementData, {
+    styleMap: incomeStyleMap,
+    columnWidths: [35, 20, 15],
+  });
+
+  // 2. Transactions Sheet
+  if (laporanTransaksi && laporanTransaksi.length > 0) {
+    // Reuse logic from exportTransactionReport manually to avoid creating new workbook
+    const transactionHeaders = [
+      "Invoice",
+      "Tanggal",
+      "Pelanggan",
+      "Paket",
+      "Armada",
+      "Sopir",
+      "Pendapatan",
+      "Biaya Ops (COGS)",
+      "Laba Kotor",
+    ];
+
+    const transactionData = [
+      ["DETAIL TRANSAKSI"],
+      [],
+      transactionHeaders,
+    ];
+
+    const { calculateTransactionFinancials } = await import("./accounting.js");
+
+    for (const tx of laporanTransaksi) {
+      const financials = calculateTransactionFinancials(tx);
+      transactionData.push([
+        tx.invoice_code || "-",
+        formatDateSafely(tx.booking_date),
+        tx.customer_name || "-",
+        tx.package?.name || "Custom",
+        tx.armada?.license_plate || "-",
+        tx.driver?.driver_name || "-",
+        formatCurrencyForExcel(financials.totalPendapatan),
+        formatCurrencyForExcel(financials.totalBiayaOps), // Note: This might be 0 in new logic if COGS is calculated separately
+        formatCurrencyForExcel(financials.labaKotor),
+      ]);
+    }
+
+    const txStyleMap = {
+      "0,0": "header",
+      "2,0": "subHeader",
+      "2,1": "subHeader",
+      "2,2": "subHeader",
+      "2,3": "subHeader",
+      "2,4": "subHeader",
+      "2,5": "subHeader",
+      "2,6": "subHeader",
+      "2,7": "subHeader",
+      "2,8": "subHeader",
+    };
+
+    // Apply currency styles
+    laporanTransaksi.forEach((_, i) => {
+      const r = i + 3;
+      txStyleMap[`${r},6`] = "currency";
+      txStyleMap[`${r},7`] = "currency";
+      txStyleMap[`${r},8`] = "currency";
+    });
+
+    addSheet(wb, "Detail Transaksi", transactionData, {
+      styleMap: txStyleMap,
+      columnWidths: [15, 12, 20, 20, 15, 15, 15, 15, 15],
+    });
+  }
+
+  // 3. Expenses Sheet
+  if (laporanPengeluaran && laporanPengeluaran.length > 0) {
+     const expenseHeaders = [
+      "Tanggal",
+      "Kategori",
+      "Deskripsi",
+      "Jumlah",
+      "Tipe (COGS/OpEx)",
+    ];
+
+    const expenseData = [
+      ["DETAIL PENGELUARAN"],
+      [],
+      expenseHeaders,
+    ];
+
+    const { EXPENSE_CATEGORIES_MAP } = await import("./accounting.js");
+
+    laporanPengeluaran.forEach((exp) => {
+      expenseData.push([
+        formatDateSafely(exp.date),
+        exp.category,
+        exp.description,
+        formatCurrencyForExcel(exp.amount),
+        EXPENSE_CATEGORIES_MAP[exp.category] || "OPEX",
+      ]);
+    });
+
+    const expStyleMap = {
+      "0,0": "header",
+      "2,0": "subHeader",
+      "2,1": "subHeader",
+      "2,2": "subHeader",
+      "2,3": "subHeader",
+      "2,4": "subHeader",
+    };
+
+    laporanPengeluaran.forEach((_, i) => {
+      const r = i + 3;
+      expStyleMap[`${r},3`] = "currency";
+    });
+
+    addSheet(wb, "Detail Pengeluaran", expenseData, {
+      styleMap: expStyleMap,
+      columnWidths: [12, 20, 30, 15, 15],
+    });
+  }
+
+  return exportWorkbook(wb, "Laporan_Keuangan");
 }

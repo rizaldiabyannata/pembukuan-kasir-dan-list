@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 import { useActionLoading } from "@/hooks/useActionLoading";
 import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,7 +13,6 @@ import SopirCard from "@/components/sopir/SopirCard";
 import SopirDialog from "@/components/sopir/SopirDialog";
 
 export default function SopirPage() {
-  const { showConfirm } = useAlertDialog();
   const { executeAction, isActionLoading } = useActionLoading();
   const [drivers, setDrivers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,33 +124,24 @@ export default function SopirPage() {
   };
 
   const handleDelete = async (id) => {
-    const confirmed = await showConfirm({
-      message: "Are you sure you want to delete this driver?",
-      title: "Konfirmasi Hapus",
-      confirmText: "Hapus",
-      cancelText: "Batal",
-    });
-
-    if (confirmed) {
-      await executeAction(
-        `delete-${id}`,
-        async () => {
-          const response = await fetch(`/api/drivers/${id}`, {
-            method: "DELETE",
-            credentials: "include",
-          });
-          if (!response.ok) {
-            throw new Error("Failed to delete driver");
-          }
-          return response.json();
-        },
-        {
-          successMessage: "Sopir berhasil dihapus",
-          errorMessage: "Gagal menghapus sopir",
-          onSuccess: () => fetchDrivers(),
+    await executeAction(
+      `delete-${id}`,
+      async () => {
+        const response = await fetch(`/api/drivers/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Gagal menghapus sopir");
         }
-      );
-    }
+        await fetchDrivers();
+        return response.json();
+      },
+      {
+        successMessage: "Sopir berhasil dihapus",
+      }
+    );
   };
 
   const openNewDriverDialog = () => {

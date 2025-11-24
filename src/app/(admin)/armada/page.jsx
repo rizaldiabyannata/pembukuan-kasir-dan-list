@@ -144,12 +144,14 @@ export default function ArmadaPage() {
           method: "DELETE",
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Gagal menghapus armada");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Gagal menghapus armada");
+        }
         await fetchArmadas();
       },
       {
         successMessage: "Armada berhasil dihapus",
-        errorMessage: "Gagal menghapus armada",
       }
     );
   };

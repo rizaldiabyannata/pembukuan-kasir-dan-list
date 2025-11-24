@@ -7,9 +7,17 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import { Car, Calendar, Wrench, Trash, Pencil } from "lucide-react";
+import {
+  Car,
+  Calendar,
+  Wrench,
+  Trash,
+  Pencil,
+  MoreVertical,
+} from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -21,6 +29,12 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -72,25 +86,66 @@ export default function ArmadaCard({
                       status === "READY"
                         ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                         : status === "ON_TRIP"
-                          ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                          : status === "MAINTENANCE"
-                            ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                        : status === "MAINTENANCE"
+                        ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     {status === "READY"
                       ? "Siap"
                       : status === "ON_TRIP"
-                        ? "Sedang Jalan"
-                        : status === "MAINTENANCE"
-                          ? "Perawatan"
-                          : status === "BOOKED"
-                            ? "Dipesan"
-                            : status}
+                      ? "Sedang Jalan"
+                      : status === "MAINTENANCE"
+                      ? "Perawatan"
+                      : status === "BOOKED"
+                      ? "Dipesan"
+                      : status}
                   </Badge>
                 </div>
               </div>
             </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem
+                      onSelect={(e) => e.preventDefault()}
+                      disabled={isDisabled || isMaintenance || isDeleting}
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    >
+                      <Trash className="mr-2 h-4 w-4" />
+                      <span>Hapus</span>
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Anda yakin ingin menghapus armada{" "}
+                        <strong>{armada.license_plate}</strong>? Tindakan ini
+                        tidak dapat dikembalikan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onDelete(armada.id)}
+                        className="bg-red-600 text-white hover:bg-red-700"
+                      >
+                        {isDeleting ? "Menghapus..." : "Hapus"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 pb-4 flex-1">
@@ -108,18 +163,18 @@ export default function ArmadaCard({
             </div>
           </div>
         </CardContent>
-        <CardFooter className="pt-0 pb-5 flex gap-2">
+        <CardFooter className="pt-0 pb-5 grid grid-cols-2 gap-3">
           <Tooltip>
             <TooltipTrigger asChild>
               <LoadingButton
                 variant="outline"
                 size="sm"
-                className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => onEdit(armada)}
                 disabled={isDisabled || isDeleting || isMaintenance}
                 isLoading={false}
               >
-                <Pencil className="h-4 w-4 mr-2" />
+                <Pencil className="h-4 w-4 mr-1.5" />
                 Edit
               </LoadingButton>
             </TooltipTrigger>
@@ -132,59 +187,15 @@ export default function ArmadaCard({
           <LoadingButton
             variant="outline"
             size="sm"
-            className="flex-1 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+            className="w-full border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
             onClick={() => onMaintenance(armada)}
             disabled={isDeleting}
             isLoading={isMaintenance}
             loadingText="Memproses..."
           >
-            <Wrench className="h-4 w-4 mr-2" />
-            Maintenance
+            <Wrench className="h-4 w-4 mr-1.5" />
+            Servis
           </LoadingButton>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <LoadingButton
-                    variant="outline"
-                    size="sm"
-                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isDisabled || isMaintenance}
-                    isLoading={isDeleting}
-                    loadingText=""
-                  >
-                    <Trash className="h-4 w-4" />
-                  </LoadingButton>
-                </AlertDialogTrigger>
-
-                <AlertDialogContent className="max-w-sm">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Anda yakin ingin menghapus armada{" "}
-                      <strong>{armada.license_plate}</strong>? Tindakan ini
-                      tidak dapat dikembalikan.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => onDelete(armada.id)}
-                      className="bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Hapus
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipTrigger>
-            {isDisabled && (
-              <TooltipContent>
-                <p>{armadaStatusMessage}</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
         </CardFooter>
       </Card>
     </TooltipProvider>

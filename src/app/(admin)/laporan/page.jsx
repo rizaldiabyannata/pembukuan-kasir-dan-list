@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import LaporanFilter from "@/components/laporan/LaporanFilter";
 import LaporanTransaksiTab from "@/components/laporan/LaporanTransaksiTab";
 import LaporanLabaRugiTab from "@/components/laporan/LaporanLabaRugiTab";
@@ -10,6 +12,7 @@ import LaporanPemasukanTab from "@/components/laporan/LaporanPemasukanTab";
 import LaporanRekapTab from "@/components/laporan/LaporanRekapTab";
 import LaporanPengeluaranTab from "@/components/laporan/LaporanPengeluaranTab";
 import LaporanKinerjaTab from "@/components/laporan/LaporanKinerjaTab";
+import { toast } from "sonner";
 
 const getThisMonthRange = () => {
   const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -21,6 +24,7 @@ export default function LaporanPage() {
   const [dateRange, setDateRange] = useState(getThisMonthRange);
   const [reportData, setReportData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const fetchReportData = useCallback(async () => {
     if (!dateRange.from || !dateRange.to) return;
@@ -83,7 +87,7 @@ export default function LaporanPage() {
       const combinedData = {
         ...summaryData,
         laporanPemasukan: incomeData,
-        laporanPengeluaran: expenseData,
+        laporanPengeluaran: expenseData.rawExpenses || expenseData.data.flatMap(c => c.expenses) || [],
       };
 
       console.log("📊 Combined report data received:", combinedData);
@@ -100,12 +104,46 @@ export default function LaporanPage() {
     fetchReportData();
   }, [dateRange, fetchReportData]);
 
+  const handleExport = async () => {
+    if (!reportData) return;
+    setIsExporting(true);
+    try {
+      const { exportFinancialReport } = await import("@/lib/excel-export");
+      const formatDate = (date) => {
+        if (!date) return "-";
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${day}/${month}/${year}`;
+      };
+
+      await exportFinancialReport(reportData, {
+        from: formatDate(dateRange.from),
+        to: formatDate(dateRange.to),
+      });
+      toast.success("Laporan berhasil diekspor");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Gagal mengekspor laporan");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex w-full flex-col gap-4">
-      <PageHeader
-        title="Laporan Keuangan"
-        description="Ringkasan kinerja bisnis, pemasukan, pengeluaran, dan laba rugi."
-      />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <PageHeader
+          title="Laporan Keuangan"
+          description="Ringkasan kinerja bisnis, pemasukan, pengeluaran, dan laba rugi."
+        />
+        <Button onClick={handleExport} disabled={isLoading || isExporting || !reportData}>
+          <Download className="mr-2 h-4 w-4" />
+          {isExporting ? "Mengekspor..." : "Export Excel"}
+        </Button>
+      </div>
+      
       <LaporanFilter
         dateRange={dateRange}
         onDateChange={setDateRange}

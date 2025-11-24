@@ -49,6 +49,52 @@ export async function generateToken(payload) {
 }
 
 /**
+ * Generate unique session token with cryptographic guarantees
+ * Combines JWT with cryptographic nonce and high-precision timestamp
+ * to ensure uniqueness even under concurrent load
+ *
+ * @param {object} payload - User data to encode in JWT
+ * @returns {Promise<string>} Unique session token with minimum 128 bits of randomness
+ */
+export async function generateUniqueSessionToken(payload) {
+  const crypto = require("crypto");
+
+  // 1. Generate base JWT with user claims
+  const jwt = await generateToken(payload);
+
+  // 2. Add cryptographic nonce (16 bytes = 128 bits = 32 hex chars)
+  // This provides the minimum 128 bits of randomness required
+  const nonce = crypto.randomBytes(16).toString("hex");
+
+  // 3. Add high-precision timestamp for temporal uniqueness
+  const timestamp = Date.now();
+
+  // Use process.hrtime() for nanosecond precision if available (Node.js runtime only)
+  // Check if process.hrtime exists before using it (not available in Edge Runtime)
+  let preciseTime = timestamp.toString();
+  if (typeof process !== "undefined" && typeof process.hrtime === "function") {
+    try {
+      const [seconds, nanoseconds] = process.hrtime();
+      preciseTime = `${timestamp}.${nanoseconds}`;
+    } catch (error) {
+      // Fallback if hrtime fails
+      const microRandom = crypto.randomBytes(4).toString("hex");
+      preciseTime = `${timestamp}.${microRandom}`;
+    }
+  } else {
+    // Edge runtime fallback - add additional random component for uniqueness
+    const microRandom = crypto.randomBytes(4).toString("hex");
+    preciseTime = `${timestamp}.${microRandom}`;
+  }
+
+  // 4. Combine all components into unique token
+  // Format: JWT.NONCE.TIMESTAMP
+  const uniqueToken = `${jwt}.${nonce}.${preciseTime}`;
+
+  return uniqueToken;
+}
+
+/**
  * Verify JWT token
  * @param {string} token - JWT token to verify
  * @returns {Promise<object>} Decoded token payload
@@ -63,13 +109,124 @@ export async function verifyToken(token) {
 }
 
 /**
- * Create session in database
+ * Attempt to create session with collision handling and retry logic
+ * Catches Prisma P2002 unique constraint errors and retries with exponential backoff
+ *
+ * @param {object} sessionData - Session data to create
+ * @param {number} attempt - Current attempt number (1-indexed)
+ * @param {number} maxRetries - Maximum retry attempts (default: 3)
+ * @returns {Promise<object>} Created session
+ * @throws {Error} If max retries exceeded or other error occurs
+ */
+export async function createSessionWithRetry(
+  sessionData,
+  attempt = 1,
+  maxRetries = 3
+) {
+  try {
+    // Attempt to create session in database
+    const session = await prisma.session.create({
+      data: sessionData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            name: true,
+            role: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    // Log successful creation if it required retries
+    if (attempt > 1) {
+      console.info(
+        `[Session Creation] Successfully created session for user ${sessionData.userId} on attempt ${attempt}`
+      );
+    }
+
+    return session;
+  } catch (error) {
+    // Check if this is a unique constraint violation (token collision)
+    if (error.code === "P2002" && error.meta?.target?.includes("token")) {
+      // Log collision event with context
+      console.warn(
+        `[Session Collision] Token collision detected for user ${sessionData.userId} on attempt ${attempt}/${maxRetries} at ${new Date().toISOString()}`
+      );
+
+      // Check if we've exceeded max retries
+      if (attempt >= maxRetries) {
+        console.error(
+          `[Session Creation Failed] Max retries (${maxRetries}) exceeded for user ${sessionData.userId}`
+        );
+        throw new Error("Unable to create session. Please try again.", {
+          cause: "SESSION_CREATION_FAILED",
+        });
+      }
+
+      // Calculate exponential backoff delay (100ms * attempt)
+      const backoffDelay = 100 * attempt;
+
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+
+      // Generate new unique token for retry
+      const user = await prisma.user.findUnique({
+        where: { id: sessionData.userId },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          name: true,
+          role: true,
+          isActive: true,
+        },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      const newToken = await generateUniqueSessionToken({
+        userId: user.id,
+        role: user.role,
+        email: user.email,
+        username: user.username,
+        name: user.name,
+        isActive: user.isActive,
+      });
+
+      // Retry with new token
+      return createSessionWithRetry(
+        {
+          ...sessionData,
+          token: newToken,
+        },
+        attempt + 1,
+        maxRetries
+      );
+    }
+
+    // Re-throw other errors
+    throw error;
+  }
+}
+
+/**
+ * Create session in database with automatic cleanup of expired sessions
+ * Uses enhanced token generation with collision retry logic
  * @param {string} userId - User ID
  * @param {string} ipAddress - Client IP address
  * @param {string} userAgent - Client user agent
  * @returns {Promise<object>} Session object with token
  */
 export async function createSession(userId, ipAddress, userAgent) {
+  // Clean up expired sessions for this user before creating new session
+  await cleanupUserExpiredSessions(userId);
+
   // Get user data first to include in JWT
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -87,8 +244,8 @@ export async function createSession(userId, ipAddress, userAgent) {
     throw new Error("User not found");
   }
 
-  // Generate session token with user data for edge runtime
-  const token = await generateToken({
+  // Generate unique session token with cryptographic guarantees
+  const token = await generateUniqueSessionToken({
     userId: user.id,
     role: user.role,
     email: user.email,
@@ -101,27 +258,13 @@ export async function createSession(userId, ipAddress, userAgent) {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_EXPIRY_DAYS);
 
-  // Create session in database
-  const session = await prisma.session.create({
-    data: {
-      userId,
-      token,
-      expiresAt,
-      ipAddress,
-      userAgent,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          username: true,
-          name: true,
-          role: true,
-          isActive: true,
-        },
-      },
-    },
+  // Create session in database with collision retry logic
+  const session = await createSessionWithRetry({
+    userId,
+    token,
+    expiresAt,
+    ipAddress,
+    userAgent,
   });
 
   return session;
@@ -143,10 +286,9 @@ export async function getSession(token) {
   if (!token) return null;
 
   try {
-    // Verify token first
-    await verifyToken(token);
-
     // Get session from database
+    // Note: We don't verify the JWT portion of the enhanced token here because
+    // the database lookup is the source of truth for session validity
     const session = await prisma.session.findUnique({
       where: { token },
       include: {
@@ -163,8 +305,24 @@ export async function getSession(token) {
       },
     });
 
-    // Check if session exists and is not expired
-    if (!session || session.expiresAt < new Date()) {
+    // Check if session doesn't exist
+    if (!session) {
+      return null;
+    }
+
+    // Check if session is expired
+    const now = new Date();
+    if (session.expiresAt < now) {
+      // Log expired session access attempt
+      const crypto = require("crypto");
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex")
+        .substring(0, 16);
+      console.warn(
+        `[Session Expired] User ${session.userId} attempted to use expired session (token hash: ${tokenHash}) at ${now.toISOString()}`
+      );
       return null;
     }
 
@@ -214,10 +372,9 @@ export async function refreshSession(token) {
   if (!token) return null;
 
   try {
-    // Verify token first
-    await verifyToken(token);
-
     // Get current session
+    // Note: We don't verify the JWT portion of the enhanced token here because
+    // the database lookup is the source of truth for session validity
     const session = await prisma.session.findUnique({
       where: { token },
       include: {
@@ -268,7 +425,37 @@ export async function refreshSession(token) {
 }
 
 /**
- * Clean up expired sessions
+ * Clean up expired sessions for a specific user
+ * Removes all sessions where the expiry date is in the past
+ * Should be called before creating a new session during login
+ *
+ * @param {string} userId - User ID
+ * @returns {Promise<number>} Number of deleted sessions
+ */
+export async function cleanupUserExpiredSessions(userId) {
+  const result = await prisma.session.deleteMany({
+    where: {
+      userId,
+      expiresAt: {
+        lt: new Date(),
+      },
+    },
+  });
+
+  // Log cleanup operation
+  if (result.count > 0) {
+    console.info(
+      `[Session Cleanup] Removed ${result.count} expired session(s) for user ${userId}`
+    );
+  }
+
+  return result.count;
+}
+
+/**
+ * Clean up expired sessions (global cleanup for scheduled maintenance)
+ * Removes all expired sessions across all users
+ *
  * @returns {Promise<number>} Number of deleted sessions
  */
 export async function cleanupExpiredSessions() {
@@ -279,6 +466,13 @@ export async function cleanupExpiredSessions() {
       },
     },
   });
+
+  // Log cleanup operation
+  if (result.count > 0) {
+    console.info(
+      `[Session Cleanup] Global cleanup removed ${result.count} expired session(s)`
+    );
+  }
 
   return result.count;
 }

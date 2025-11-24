@@ -32,6 +32,14 @@ export default function TransaksiCompleteModal({
   onComplete,
   isLoading,
 }) {
+  console.log("🎭 [DEBUG] TransaksiCompleteModal rendered with props:", {
+    open,
+    transaction: transaction
+      ? { id: transaction.id, invoice_code: transaction.invoice_code }
+      : null,
+    isLoading,
+  });
+
   const { showAlert } = useAlertDialog();
   const [actualCheckinTime, setActualCheckinTime] = useState("");
   const [overtimeCost, setOvertimeCost] = useState(0);
@@ -59,11 +67,16 @@ export default function TransaksiCompleteModal({
 
   // Reset form when transaction changes
   useEffect(() => {
+    console.log(
+      "🔄 [DEBUG] TransaksiCompleteModal transaction changed:",
+      transaction
+    );
     if (transaction) {
       // Set default actual checkin time to current time
       const now = new Date();
       // Format date as-is without timezone manipulation
       const localISOTime = now.toISOString().slice(0, 16);
+      console.log("⏰ [DEBUG] Setting initial checkin time:", localISOTime);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActualCheckinTime(localISOTime);
 
@@ -71,6 +84,14 @@ export default function TransaksiCompleteModal({
       calculateOvertimeLocal(localISOTime);
     }
   }, [transaction, calculateOvertimeLocal]);
+
+  // Scroll to top when dialog opens
+  useEffect(() => {
+    if (open) {
+      console.log("📜 [DEBUG] Dialog opened, scrolling to top");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [open]);
 
   const handleCheckinTimeChange = (e) => {
     const newTime = e.target.value;
@@ -115,7 +136,17 @@ export default function TransaksiCompleteModal({
     });
   };
 
-  if (!transaction) return null;
+  if (!transaction) {
+    console.log(
+      "⚠️ [DEBUG] TransaksiCompleteModal: No transaction data, returning null"
+    );
+    return null;
+  }
+
+  console.log(
+    "✅ [DEBUG] TransaksiCompleteModal: Rendering dialog with open =",
+    open
+  );
 
   const packageDuration = transaction.package?.durationHours || 12;
   const totalDuration = calculatedOvertimeHours + packageDuration;
@@ -127,9 +158,9 @@ export default function TransaksiCompleteModal({
   const sisaTagihan = totalAmount - dpAmount;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={true}>
       <DialogContent
-        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto relative"
+        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
         aria-busy={isLoading}
       >
         <LoadingOverlay

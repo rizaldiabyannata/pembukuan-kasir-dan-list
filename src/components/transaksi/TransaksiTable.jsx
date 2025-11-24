@@ -193,12 +193,13 @@ export default function TransaksiTable({
           <TableBody>
             {data.map((item) => {
               const { totalTagihan, sisaTagihan } = getCalculatedData(item);
+              const isCompleted = !!item.actual_checkin_datetime;
+
               const showSisaTagihan =
+                !isCompleted &&
                 item.payment_status === "DOWN_PAYMENT" &&
                 item.dp_amount &&
                 item.dp_amount > 0;
-
-              const isCompleted = !!item.actual_checkin_datetime;
               const approvalStatus = item.approval_status || "DRAFT";
 
               // Check if armada is currently booked or on trip (preventing modifications)
@@ -283,7 +284,15 @@ export default function TransaksiTable({
                             <>
                               <p className="text-sm">
                                 <span className="font-medium">Tipe:</span>{" "}
-                                {item.package.type}
+                                {item.package.type === "CAR_RENTAL"
+                                  ? "Sewa Mobil"
+                                  : item.package.type === "TOUR_PACKAGE"
+                                    ? "Paket Tour"
+                                    : item.package.type === "FULL_DAY_TRIP"
+                                      ? "Full Day Trip"
+                                      : item.package.type === "CUSTOM_PRICING"
+                                        ? "Harga Custom"
+                                        : item.package.type}
                               </p>
                               <p className="text-sm">
                                 <span className="font-medium">Durasi:</span>{" "}
@@ -293,16 +302,17 @@ export default function TransaksiTable({
                                     ? `${item.package.durationDays} hari`
                                     : "Custom"}
                               </p>
-                              <p className="text-sm">
-                                <span className="font-medium">Harga:</span>{" "}
-                                {item.package.price
-                                  ? new Intl.NumberFormat("id-ID", {
+                              {item.package.type === "CAR_RENTAL" &&
+                                item.package.price && (
+                                  <p className="text-sm">
+                                    <span className="font-medium">Harga:</span>{" "}
+                                    {new Intl.NumberFormat("id-ID", {
                                       style: "currency",
                                       currency: "IDR",
                                       minimumFractionDigits: 0,
-                                    }).format(item.package.price)
-                                  : "N/A"}
-                              </p>
+                                    }).format(item.package.price)}
+                                  </p>
+                                )}
                               {item.package.description && (
                                 <p className="text-sm line-clamp-3">
                                   {item.package.description}
@@ -339,7 +349,7 @@ export default function TransaksiTable({
                           </div>
                         </TooltipContent>
                       </Tooltip>
-                      {isArmadaInUse && (
+                      {!isCompleted && isArmadaInUse && (
                         <Badge
                           variant="outline"
                           className={cn(
@@ -419,8 +429,19 @@ export default function TransaksiTable({
                         <DropdownMenuContent align="end">
                           {isAdmin && (
                             <DropdownMenuItem
-                              onClick={() => onCompleteTransaction(item)}
+                              onClick={() => {
+                                console.log(
+                                  "📱 [DEBUG] Mobile complete button clicked for item:",
+                                  item
+                                );
+                                onCompleteTransaction(item);
+                              }}
                               disabled={isCompleted}
+                              title={
+                                isCompleted
+                                  ? "Transaksi sudah diselesaikan"
+                                  : "Selesaikan transaksi"
+                              }
                             >
                               <CheckCircle className="mr-2 h-4 w-4" />
                               {isCompleted
@@ -547,20 +568,32 @@ export default function TransaksiTable({
                     </div>
                     <div className="hidden lg:flex lg:items-center lg:gap-1 lg:flex-wrap">
                       {isAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onCompleteTransaction(item)}
-                          className="text-green-600 hover:text-green-700"
-                          disabled={isCompleted}
-                          title={
-                            isCompleted
-                              ? "Transaksi sudah selesai"
-                              : "Selesaikan transaksi"
-                          }
-                        >
-                          <CheckCircle className="h-3 w-3" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                console.log(
+                                  "🖥️ [DEBUG] Desktop complete button clicked for item:",
+                                  item
+                                );
+                                onCompleteTransaction(item);
+                              }}
+                              className="text-green-600 hover:text-green-700"
+                              disabled={isCompleted}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {isCompleted
+                                ? "Transaksi sudah diselesaikan"
+                                : "Selesaikan transaksi"}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       {canApproveReject && (
                         <Button

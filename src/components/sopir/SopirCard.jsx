@@ -25,6 +25,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 export default function SopirCard({
   driver,
@@ -151,20 +162,44 @@ export default function SopirCard({
           </Button>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => onDelete(driver.id)}
-                disabled={isDisabled || isDeleting}
-                aria-busy={isDeleting}
-              >
-                {isDeleting ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <Trash className="h-4 w-4" />
-                )}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isDisabled || isDeleting}
+                    aria-busy={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <Trash className="h-4 w-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+
+                <AlertDialogContent className="max-w-sm">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Anda yakin ingin menghapus sopir{" "}
+                      <strong>{driver.driver_name}</strong>? Tindakan ini tidak
+                      dapat dikembalikan.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => onDelete(driver.id)}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Hapus
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </TooltipTrigger>
             {isDisabled && (
               <TooltipContent>

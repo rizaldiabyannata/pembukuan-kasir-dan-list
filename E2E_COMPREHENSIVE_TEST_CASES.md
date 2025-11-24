@@ -77,8 +77,8 @@
 
 ```json
 {
-  "email": "admin@rental.com",
-  "password": "password123",
+  "email": "admin@pembukuan.com",
+  "password": "admin@12345",
   "expectedRole": "ADMIN"
 }
 ```
@@ -126,7 +126,7 @@
 
 ```json
 {
-  "email": "operator@rental.com",
+  "email": "operator@pembukuan.com",
   "password": "password123",
   "expectedRole": "OPERATOR"
 }
@@ -521,11 +521,11 @@
 ### TC-TRANS-FLOW-001: Buat Transaksi Baru - Sewa Mobil (DRAFT)
 
 **Prioritas**: Kritis  
-**Role**: ADMIN/OPERATOR
+**Role**: OPERATOR
 
 **Prakondisi**:
 
-- Login sebagai admin atau operator
+- Login sebagai operator
 - Ada armada dengan status READY
 - Ada sopir dengan status AVAILABLE
 - Ada paket "Sewa Mobil"
@@ -592,7 +592,7 @@
 ### TC-TRANS-FLOW-002: Submit Transaksi untuk Approval
 
 **Prioritas**: Kritis  
-**Role**: ADMIN/OPERATOR
+**Role**: OPERATOR
 
 **Prakondisi**: Transaksi dengan status DRAFT ada
 

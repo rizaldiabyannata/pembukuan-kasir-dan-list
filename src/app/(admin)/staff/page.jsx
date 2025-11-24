@@ -7,6 +7,13 @@ import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
 import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
 
 import StaffCard from "@/components/staff/StaffCard";
@@ -34,13 +41,14 @@ export default function StaffPage() {
     notes: "",
   });
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter && statusFilter !== "ALL")
+        params.append("status", statusFilter);
       if (searchTerm) params.append("search", searchTerm);
 
       const response = await fetch(`/api/staff?${params.toString()}`, {
@@ -186,7 +194,7 @@ export default function StaffPage() {
           return;
         }
 
-        const result = await response.json();
+        await response.json();
         toast.success("Staff berhasil dihapus");
         fetchStaff();
       } catch (error) {
@@ -240,7 +248,7 @@ export default function StaffPage() {
         </Button>
       </PageHeader>
 
-      <div className="flex flex-col gap-4 p-4 pt-0">
+      <div className="flex flex-col gap-4 p-4 pt-0 mt-4">
         <div className="flex flex-col sm:flex-row items-end gap-4 mb-4">
           <Input
             placeholder="Cari nama, NIK, posisi, atau no. HP..."
@@ -248,16 +256,17 @@ export default function StaffPage() {
             value={searchTerm}
             onChange={handleSearchChange}
           />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md bg-white"
-          >
-            <option value="">Semua Status</option>
-            <option value="ACTIVE">Aktif</option>
-            <option value="INACTIVE">Tidak Aktif</option>
-            <option value="ON_LEAVE">Cuti</option>
-          </select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Semua Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Semua Status</SelectItem>
+              <SelectItem value="ACTIVE">Aktif</SelectItem>
+              <SelectItem value="INACTIVE">Tidak Aktif</SelectItem>
+              <SelectItem value="ON_LEAVE">Cuti</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

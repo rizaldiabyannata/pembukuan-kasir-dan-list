@@ -148,17 +148,27 @@ function isValidTokenFormat(token) {
  * Used for cookie prioritization logic
  * Note: This is NOT a security check, just for cookie selection
  *
- * @param {string} token - JWT token
+ * @param {string} token - JWT token (may be enhanced with nonce and timestamp)
  * @returns {string|null} User role or null if cannot be extracted
  */
 function extractRoleFromToken(token) {
   try {
-    if (!isValidTokenFormat(token)) {
+    // Enhanced tokens have format: JWT.NONCE.TIMESTAMP
+    // We need to extract just the JWT part (first 3 segments)
+    const parts = token.split(".");
+    let jwtToken = token;
+
+    if (parts.length > 3) {
+      // Extract JWT portion (first 3 parts)
+      jwtToken = parts.slice(0, 3).join(".");
+    }
+
+    if (!isValidTokenFormat(jwtToken)) {
       return null;
     }
 
     // Decode JWT payload (middle part)
-    const payload = token.split(".")[1];
+    const payload = jwtToken.split(".")[1];
     const decoded = JSON.parse(
       Buffer.from(payload, "base64").toString("utf-8")
     );
@@ -212,19 +222,39 @@ export function extractSessionToken(request) {
     if (token) {
       // Check format and expiration
       let isExpired = false;
+      let isValidFormat = false;
       try {
-        const payload = token.split(".")[1];
-        const decoded = JSON.parse(
-          Buffer.from(payload, "base64").toString("utf-8")
-        );
-        if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-          isExpired = true;
+        // Enhanced tokens have format: JWT.NONCE.TIMESTAMP
+        // We need to extract just the JWT part (first 3 segments)
+        const parts = token.split(".");
+
+        // Check if this is an enhanced token (more than 3 parts)
+        let jwtToken = token;
+        if (parts.length > 3) {
+          // Extract JWT portion (first 3 parts)
+          jwtToken = parts.slice(0, 3).join(".");
+        }
+
+        isValidFormat = isValidTokenFormat(jwtToken);
+
+        if (isValidFormat) {
+          const payload = jwtToken.split(".")[1];
+          const decoded = JSON.parse(
+            Buffer.from(payload, "base64").toString("utf-8")
+          );
+          if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+            isExpired = true;
+          }
         }
       } catch (e) {
+        console.error(
+          `[extractSessionToken] Error validating ${cookieName}:`,
+          e.message
+        );
         isExpired = true;
       }
 
-      if (isValidTokenFormat(token) && !isExpired) {
+      if (isValidFormat && !isExpired) {
         validTokens[cookieName] = token;
         // Try to extract role from token
         const role = extractRoleFromToken(token);
@@ -232,6 +262,9 @@ export function extractSessionToken(request) {
           tokenRoles[cookieName] = role;
         }
       } else {
+        console.warn(
+          `[extractSessionToken] Invalid/expired cookie ${cookieName}: format=${isValidFormat}, expired=${isExpired}`
+        );
         invalidCookies.push(cookieName);
       }
     }
@@ -670,7 +703,7 @@ export function getRedirectDestination(user, pathname, errorType = null) {
  *
  * Note: API routes should use getSession() from auth.js for full validation
  *
- * @param {string} token - Session token to validate
+ * @param {string} token - Session token (may be enhanced with nonce and timestamp)
  * @returns {Promise<object>} Validation result with session data or error
  */
 export async function validateSession(token) {
@@ -686,9 +719,22 @@ export async function validateSession(token) {
   }
 
   try {
+    // Enhanced tokens have format: JWT.NONCE.TIMESTAMP
+    // We need to extract just the JWT part for verification
+    const parts = token.split(".");
+    let jwtToken = token;
+
+    if (parts.length > 3) {
+      // Extract JWT portion (first 3 parts)
+      jwtToken = parts.slice(0, 3).join(".");
+      console.log(
+        `[validateSession] Enhanced token detected, extracted JWT portion`
+      );
+    }
+
     // Verify JWT token signature and expiration
     // This will throw if token is malformed or expired
-    const payload = await verifyToken(token);
+    const payload = await verifyToken(jwtToken);
 
     // Extract user data from JWT payload
     // Note: This is less secure than database validation but necessary for edge runtime

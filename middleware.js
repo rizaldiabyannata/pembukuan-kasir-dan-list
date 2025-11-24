@@ -148,6 +148,18 @@ function logUnauthorizedAccess(user, pathname, reason, request) {
 async function handleProtectedRoute(request) {
   const { pathname } = request.nextUrl;
 
+  // Debug: Log cookies
+  const cookies = request.cookies;
+  console.log("🔍 Middleware cookies:", {
+    session: cookies.get("session")?.value?.substring(0, 20) + "..." || "none",
+    session_admin:
+      cookies.get("session_admin")?.value?.substring(0, 20) + "..." || "none",
+    session_operator:
+      cookies.get("session_operator")?.value?.substring(0, 20) + "..." ||
+      "none",
+    pathname,
+  });
+
   // Evaluate route access (session validation + permission check)
   const evaluation = await evaluateRouteAccess(request, pathname);
 

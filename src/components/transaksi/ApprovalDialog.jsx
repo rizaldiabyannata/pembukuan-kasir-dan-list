@@ -98,7 +98,9 @@ export default function ApprovalDialog({
                   Diajukan oleh:
                 </span>
                 <span className="text-sm font-medium">
-                  {transaction.submitted_by}
+                  {transaction.submitted_by.name ||
+                    transaction.submitted_by.email ||
+                    "Unknown"}
                 </span>
               </div>
             )}

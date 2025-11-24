@@ -163,9 +163,10 @@ export function useActionLoading() {
       const abortController = abortControllersRef.current[actionId];
 
       // Combine internal and external abort signals
-      const combinedSignal = externalSignal
-        ? combineAbortSignals([abortController.signal, externalSignal])
-        : abortController.signal;
+      const combinedSignal =
+        externalSignal && abortController
+          ? combineAbortSignals([abortController.signal, externalSignal])
+          : abortController?.signal;
 
       let attempt = 0;
       let lastError = null;

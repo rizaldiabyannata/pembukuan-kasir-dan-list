@@ -4,12 +4,18 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { 
+  Download, 
+  FileText, 
+  TrendingUp, 
+  TrendingDown, 
+  Wallet, 
+  BarChart3 
+} from "lucide-react";
 import LaporanFilter from "@/components/laporan/LaporanFilter";
 import LaporanTransaksiTab from "@/components/laporan/LaporanTransaksiTab";
 import LaporanLabaRugiTab from "@/components/laporan/LaporanLabaRugiTab";
 import LaporanPemasukanTab from "@/components/laporan/LaporanPemasukanTab";
-import LaporanRekapTab from "@/components/laporan/LaporanRekapTab";
 import LaporanPengeluaranTab from "@/components/laporan/LaporanPengeluaranTab";
 import LaporanKinerjaTab from "@/components/laporan/LaporanKinerjaTab";
 import { toast } from "sonner";
@@ -88,6 +94,7 @@ export default function LaporanPage() {
         ...summaryData,
         laporanPemasukan: incomeData,
         laporanPengeluaran: expenseData.rawExpenses || expenseData.data.flatMap(c => c.expenses) || [],
+        expenseData: expenseData, // Store full expense data for the tab
       };
 
       console.log("📊 Combined report data received:", combinedData);
@@ -152,27 +159,29 @@ export default function LaporanPage() {
       />
 
       <Tabs defaultValue="laporan-transaksi" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 h-auto">
-          <TabsTrigger value="laporan-transaksi" className="text-xs md:text-sm">
-            Laporan Transaksi
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
+          <TabsTrigger value="laporan-transaksi" className="text-xs md:text-sm py-2">
+            <FileText className="w-4 h-4 mr-2 hidden md:inline" />
+            Transaksi
           </TabsTrigger>
-          <TabsTrigger value="laporan-laba-rugi" className="text-xs md:text-sm">
-            Laporan Laba Rugi
+          <TabsTrigger value="laporan-laba-rugi" className="text-xs md:text-sm py-2">
+            <Wallet className="w-4 h-4 mr-2 hidden md:inline" />
+            Laba Rugi
           </TabsTrigger>
-          <TabsTrigger value="laporan-pemasukan" className="text-xs md:text-sm">
-            Laporan Pemasukan
+          <TabsTrigger value="laporan-pemasukan" className="text-xs md:text-sm py-2">
+            <TrendingUp className="w-4 h-4 mr-2 hidden md:inline" />
+            Pemasukan
           </TabsTrigger>
           <TabsTrigger
             value="laporan-pengeluaran"
-            className="text-xs md:text-sm"
+            className="text-xs md:text-sm py-2"
           >
-            Laporan Pengeluaran
+            <TrendingDown className="w-4 h-4 mr-2 hidden md:inline" />
+            Pengeluaran
           </TabsTrigger>
-          <TabsTrigger value="rekapitulasi" className="text-xs md:text-sm">
-            Rekapitulasi
-          </TabsTrigger>
-          <TabsTrigger value="laporan-kinerja" className="text-xs md:text-sm">
-            Laporan Kinerja
+          <TabsTrigger value="laporan-kinerja" className="text-xs md:text-sm py-2">
+            <BarChart3 className="w-4 h-4 mr-2 hidden md:inline" />
+            Kinerja
           </TabsTrigger>
         </TabsList>
 
@@ -202,20 +211,9 @@ export default function LaporanPage() {
 
         <TabsContent value="laporan-pengeluaran" className="mt-4">
           <LaporanPengeluaranTab
-            data={reportData?.laporanPengeluaran}
+            data={reportData?.expenseData}
             isLoading={isLoading}
             dateRange={dateRange}
-          />
-        </TabsContent>
-
-        <TabsContent value="rekapitulasi" className="mt-4">
-          <LaporanRekapTab
-            startDate={
-              dateRange.from ? dateRange.from.toISOString().split("T")[0] : null
-            }
-            endDate={
-              dateRange.to ? dateRange.to.toISOString().split("T")[0] : null
-            }
           />
         </TabsContent>
 

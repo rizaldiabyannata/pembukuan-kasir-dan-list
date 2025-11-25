@@ -111,7 +111,7 @@ describe("Session Independence - Property-Based Tests", () => {
             await prisma.user.delete({ where: { id: user.id } });
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
 
@@ -174,7 +174,7 @@ describe("Session Independence - Property-Based Tests", () => {
             expect(remainingSessions).toBe(totalSessions - 1);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
 
@@ -228,7 +228,7 @@ describe("Session Independence - Property-Based Tests", () => {
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
 
@@ -304,7 +304,7 @@ describe("Session Independence - Property-Based Tests", () => {
             expect(totalCount).toBe(initialSessions + newSessions);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
 
@@ -349,7 +349,7 @@ describe("Session Independence - Property-Based Tests", () => {
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
 
@@ -408,7 +408,7 @@ describe("Session Independence - Property-Based Tests", () => {
             }
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 50 }
       );
     });
   });

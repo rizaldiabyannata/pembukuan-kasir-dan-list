@@ -15,12 +15,36 @@ async function handleGetExpenses(request) {
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get("page")) || 1;
     const limit = parseInt(url.searchParams.get("limit")) || 10;
+    const search = url.searchParams.get("search") || "";
+    const startDate = url.searchParams.get("startDate");
+    const endDate = url.searchParams.get("endDate");
     const offset = (page - 1) * limit;
 
-    // Get total count for pagination
-    const totalCount = await prisma.expense.count();
+    // Build where clause
+    const where = {};
+
+    if (search) {
+      where.OR = [
+        { description: { contains: search } }, // Default is case-insensitive in some DBs, but for SQLite/Postgres might need mode: 'insensitive'
+        { category: { contains: search } },
+      ];
+    }
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        where.date.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.date.lte = new Date(endDate);
+      }
+    }
+
+    // Get total count for pagination with filters
+    const totalCount = await prisma.expense.count({ where });
 
     const data = await prisma.expense.findMany({
+      where,
       skip: offset,
       take: limit,
       orderBy: {

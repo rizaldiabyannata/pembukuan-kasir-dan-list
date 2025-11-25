@@ -170,6 +170,10 @@ export default function PengeluaranPage() {
         limit: itemsPerPage.toString(),
       });
 
+      if (searchTerm) params.append("search", searchTerm);
+      if (dateRange.from) params.append("startDate", new Date(dateRange.from).toISOString());
+      if (dateRange.to) params.append("endDate", new Date(dateRange.to).toISOString());
+
       const response = await fetch(`/api/expenses?${params}`, {
         credentials: "include",
       });
@@ -203,11 +207,15 @@ export default function PengeluaranPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [itemsPerPage]);
+  }, [itemsPerPage, searchTerm, dateRange]);
 
   useEffect(() => {
-    fetchData(currentPage);
-  }, [fetchData, currentPage]);
+    const timer = setTimeout(() => {
+      fetchData(currentPage);
+    }, 500); // Debounce search
+
+    return () => clearTimeout(timer);
+  }, [fetchData, currentPage, searchTerm, dateRange]);
 
   // Handler untuk pagination
   const handlePageChange = (page) => {
@@ -219,65 +227,8 @@ export default function PengeluaranPage() {
   };
 
   // --- Filtering Logic ---
-  const filteredData = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-
-    console.log("🔍 Filtering with:", {
-      searchTerm: q,
-      dateRange,
-      totalData: data.length,
-    });
-
-    const filtered = data.filter((item) => {
-      // Convert item date to start of day for comparison
-      const itemDate = new Date(item.date);
-      itemDate.setHours(0, 0, 0, 0);
-
-      const matchesSearch =
-        !q ||
-        item.description.toLowerCase().includes(q) ||
-        item.category.toLowerCase().replace("_", " ").includes(q);
-
-      // Create comparison dates
-      let matchesDate = true;
-
-      if (dateRange.from) {
-        const fromDate = new Date(dateRange.from);
-        fromDate.setHours(0, 0, 0, 0);
-        matchesDate = matchesDate && itemDate >= fromDate;
-      }
-
-      if (dateRange.to) {
-        const toDate = new Date(dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        matchesDate = matchesDate && itemDate <= toDate;
-      }
-
-      if (dateRange.from || dateRange.to) {
-        console.log("📅 Date check:", {
-          item: item.description?.substring(0, 30),
-          itemDate: itemDate.toISOString().split("T")[0],
-          fromDate: dateRange.from
-            ? new Date(dateRange.from).toISOString().split("T")[0]
-            : "none",
-          toDate: dateRange.to
-            ? new Date(dateRange.to).toISOString().split("T")[0]
-            : "none",
-          matchesDate,
-        });
-      }
-
-      return matchesSearch && matchesDate;
-    });
-
-    console.log(
-      "✅ Filtered result:",
-      filtered.length,
-      "items out of",
-      data.length
-    );
-    return filtered;
-  }, [data, searchTerm, dateRange]);
+  // Client-side filtering removed in favor of backend filtering
+  const filteredData = data;
 
   // --- Event Handlers ---
   const handleSearchChange = (e) => {

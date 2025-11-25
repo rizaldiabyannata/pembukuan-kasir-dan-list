@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -32,10 +32,13 @@ import {
   DollarSign,
   FileText,
   Download,
+  Calendar,
+  Layers
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { exportExpenseReport } from "@/lib/excel-export";
+import { exportExpenseReport, exportRekapReport } from "@/lib/excel-export";
 import { useAlertDialog } from "@/components/ui/alert-dialog-provider";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Helper function untuk format mata uang
 function formatCurrency(amount) {
@@ -92,30 +95,45 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const { showAlert } = useAlertDialog();
+  const [viewMode, setViewMode] = useState("category"); // "category" or "monthly"
+  const [monthlyData, setMonthlyData] = useState(null);
+  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
+
+  // Fetch monthly data when view mode changes to monthly
+  useEffect(() => {
+    if (viewMode === "monthly" && !monthlyData && dateRange?.from && dateRange?.to) {
+      const fetchMonthlyData = async () => {
+        setIsLoadingMonthly(true);
+        try {
+          const params = new URLSearchParams({
+            startDate: dateRange.from.toISOString().split("T")[0],
+            endDate: dateRange.to.toISOString().split("T")[0],
+          });
+          
+          const res = await fetch(`/api/reports/rekap?${params}`);
+          const result = await res.json();
+          
+          if (result.success) {
+            setMonthlyData(result.data);
+          }
+        } catch (error) {
+          console.error("Error fetching monthly data:", error);
+        } finally {
+          setIsLoadingMonthly(false);
+        }
+      };
+      
+      fetchMonthlyData();
+    }
+  }, [viewMode, dateRange, monthlyData]);
+
+  // Reset monthly data when date range changes
+  useEffect(() => {
+    setMonthlyData(null);
+  }, [dateRange]);
 
   // Function to export data to Excel
   const exportToExcel = async () => {
-    // Validate data before export
-    if (!data || !data.data) {
-      console.warn("Export warning: No expense data available");
-      await showAlert({
-        message: "Tidak ada data untuk diekspor",
-        type: "warning",
-        title: "Data Kosong",
-      });
-      return;
-    }
-
-    if (data.data.length === 0) {
-      console.warn("Export warning: Empty expense data array");
-      await showAlert({
-        message: "Tidak ada data pengeluaran pada periode yang dipilih",
-        type: "warning",
-        title: "Data Kosong",
-      });
-      return;
-    }
-
     setIsExporting(true);
     try {
       const reportDateRange = dateRange
@@ -128,23 +146,37 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
             to: new Date().toISOString().split("T")[0],
           };
 
-      await exportExpenseReport(data, reportDateRange);
+      if (viewMode === "category") {
+        if (!data || !data.data || data.data.length === 0) {
+          await showAlert({
+            message: "Tidak ada data untuk diekspor",
+            type: "warning",
+            title: "Data Kosong",
+          });
+          return;
+        }
+        await exportExpenseReport(data, reportDateRange);
+      } else {
+        if (!monthlyData || !monthlyData.rekap || monthlyData.rekap.length === 0) {
+           await showAlert({
+            message: "Tidak ada data rekap untuk diekspor",
+            type: "warning",
+            title: "Data Kosong",
+          });
+          return;
+        }
+        await exportRekapReport(monthlyData, reportDateRange);
+      }
 
-      // Show success message
-      console.log("Export successful: Expense report exported");
       await showAlert({
-        message: "File Excel berhasil diekspor dengan multiple sheet",
+        message: "File Excel berhasil diekspor",
         type: "success",
         title: "Export Berhasil",
       });
     } catch (error) {
       console.error("Export failed:", error);
-
-      // Show user-friendly error message
-      const errorMessage =
-        error.message || "Gagal mengekspor file Excel. Silakan coba lagi.";
       await showAlert({
-        message: errorMessage,
+        message: error.message || "Gagal mengekspor file Excel",
         type: "error",
         title: "Export Gagal",
       });
@@ -187,15 +219,11 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
   if (isLoading) {
     return (
       <div className="space-y-6" role="status" aria-busy="true">
-        {/* Summary Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
-                <Skeleton
-                  className="h-4 w-24"
-                  aria-label={`Memuat statistik ${i + 1}`}
-                />
+                <Skeleton className="h-4 w-24" />
               </CardHeader>
               <CardContent>
                 <Skeleton className="h-8 w-20" />
@@ -203,22 +231,14 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
             </Card>
           ))}
         </div>
-
-        {/* Table Skeleton */}
         <Card>
           <CardHeader>
-            <Skeleton className="h-6 w-48" aria-label="Memuat judul laporan" />
+            <Skeleton className="h-6 w-48" />
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <Skeleton
-                    className="h-4 w-32"
-                    aria-label={`Memuat kategori ${i + 1}`}
-                  />
-                  <Skeleton className="h-4 w-24" />
-                </div>
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
           </CardContent>
@@ -315,138 +335,234 @@ export default function LaporanPengeluaranTab({ data, isLoading, dateRange }) {
         </Card>
       </div>
 
+      {/* View Toggle */}
+      <div className="flex justify-between items-center">
+        <Tabs value={viewMode} onValueChange={setViewMode} className="w-[400px]">
+          <TabsList>
+            <TabsTrigger value="category">
+              <Layers className="w-4 h-4 mr-2" />
+              Per Kategori
+            </TabsTrigger>
+            <TabsTrigger value="monthly">
+              <Calendar className="w-4 h-4 mr-2" />
+              Per Bulan
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <LoadingButton
+          onClick={exportToExcel}
+          isLoading={isExporting}
+          loadingText="Mengekspor..."
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" />
+          Export Excel
+        </LoadingButton>
+      </div>
+
       {/* Detailed Report */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Rincian Pengeluaran per Kategori</CardTitle>
-              <CardDescription>
-                Breakdown pengeluaran berdasarkan kategori untuk periode{" "}
-                {dateRange?.from?.toLocaleDateString("id-ID")} -{" "}
-                {dateRange?.to?.toLocaleDateString("id-ID")}
-              </CardDescription>
-            </div>
-            <LoadingButton
-              onClick={exportToExcel}
-              isLoading={isExporting}
-              loadingText="Mengekspor..."
-              disabled={!data || !data.data || data.data.length === 0}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Export Excel
-            </LoadingButton>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {groupedData
-              .sort((a, b) => b.totalAmount - a.totalAmount) // Sort by amount descending
-              .map((categoryGroup) => {
-                const isExpanded = expandedCategories.has(
-                  categoryGroup.category
-                );
-                const percentage =
-                  summary.totalAmount > 0
-                    ? (
-                        (categoryGroup.totalAmount / summary.totalAmount) *
-                        100
-                      ).toFixed(1)
-                    : 0;
+      {viewMode === "category" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rincian Pengeluaran per Kategori</CardTitle>
+            <CardDescription>
+              Breakdown pengeluaran berdasarkan kategori
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {groupedData
+                .sort((a, b) => b.totalAmount - a.totalAmount)
+                .map((categoryGroup) => {
+                  const isExpanded = expandedCategories.has(
+                    categoryGroup.category
+                  );
+                  const percentage =
+                    summary.totalAmount > 0
+                      ? (
+                          (categoryGroup.totalAmount / summary.totalAmount) *
+                          100
+                        ).toFixed(1)
+                      : 0;
 
-                return (
-                  <Collapsible
-                    key={categoryGroup.category}
-                    open={isExpanded}
-                    onOpenChange={() => toggleCategory(categoryGroup.category)}
-                  >
-                    <div className="border rounded-lg p-4">
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-between p-0 h-auto hover:bg-transparent"
-                        >
-                          <div className="flex items-center space-x-4 flex-1">
-                            <div className="flex items-center space-x-2">
-                              {isExpanded ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                              <Badge
-                                variant="secondary"
-                                className={getCategoryColor(
-                                  categoryGroup.category
+                  return (
+                    <Collapsible
+                      key={categoryGroup.category}
+                      open={isExpanded}
+                      onOpenChange={() => toggleCategory(categoryGroup.category)}
+                    >
+                      <div className="border rounded-lg p-4">
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-between p-0 h-auto hover:bg-transparent"
+                          >
+                            <div className="flex items-center space-x-4 flex-1">
+                              <div className="flex items-center space-x-2">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
                                 )}
-                              >
-                                {formatCategory(categoryGroup.category)}
-                              </Badge>
-                            </div>
-                            <div className="flex-1">
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-blue-600 h-2 rounded-full"
-                                  style={{ width: `${percentage}%` }}
-                                ></div>
+                                <Badge
+                                  variant="secondary"
+                                  className={getCategoryColor(
+                                    categoryGroup.category
+                                  )}
+                                >
+                                  {formatCategory(categoryGroup.category)}
+                                </Badge>
+                              </div>
+                              <div className="flex-1">
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full"
+                                    style={{ width: `${percentage}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-semibold">
+                                  {formatCurrency(categoryGroup.totalAmount)}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {categoryGroup.count} transaksi • {percentage}%
+                                </div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className="font-semibold">
-                                {formatCurrency(categoryGroup.totalAmount)}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {categoryGroup.count} transaksi • {percentage}%
-                              </div>
-                            </div>
-                          </div>
-                        </Button>
-                      </CollapsibleTrigger>
+                          </Button>
+                        </CollapsibleTrigger>
 
-                      <CollapsibleContent className="mt-4">
-                        <div className="border-t pt-4">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Tanggal</TableHead>
-                                <TableHead>Deskripsi</TableHead>
-                                <TableHead>Jumlah</TableHead>
-                                <TableHead>Penerima</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {categoryGroup.expenses.map((expense) => (
-                                <TableRow key={expense.id}>
-                                  <TableCell>
-                                    {new Date(expense.date).toLocaleDateString(
-                                      "id-ID"
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="max-w-xs truncate">
-                                    {expense.description}
-                                  </TableCell>
-                                  <TableCell className="font-medium">
-                                    {formatCurrency(expense.amount)}
-                                  </TableCell>
-                                  <TableCell>
-                                    {expense.namaPenerima ||
-                                      expense.staff?.name ||
-                                      expense.driver?.driver_name ||
-                                      "-"}
-                                  </TableCell>
+                        <CollapsibleContent className="mt-4">
+                          <div className="border-t pt-4">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Tanggal</TableHead>
+                                  <TableHead>Deskripsi</TableHead>
+                                  <TableHead>Jumlah</TableHead>
+                                  <TableHead>Penerima</TableHead>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                              </TableHeader>
+                              <TableBody>
+                                {categoryGroup.expenses.map((expense) => (
+                                  <TableRow key={expense.id}>
+                                    <TableCell>
+                                      {new Date(expense.date).toLocaleDateString(
+                                        "id-ID"
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="max-w-xs truncate">
+                                      {expense.description}
+                                    </TableCell>
+                                    <TableCell className="font-medium">
+                                      {formatCurrency(expense.amount)}
+                                    </TableCell>
+                                    <TableCell>
+                                      {expense.namaPenerima ||
+                                        expense.staff?.name ||
+                                        expense.driver?.driver_name ||
+                                        "-"}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rincian Pengeluaran Bulanan</CardTitle>
+            <CardDescription>
+              Breakdown pengeluaran per kategori setiap bulan
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingMonthly ? (
+              <div className="space-y-4">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : !monthlyData || monthlyData.rekap.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Tidak ada data bulanan tersedia
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {monthlyData.rekap.map((categoryData) => (
+                  <Card key={categoryData.category} className="border shadow-sm">
+                    <CardHeader className="py-3 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge className={getCategoryColor(categoryData.category)}>
+                            {formatCategory(categoryData.category)}
+                          </Badge>
                         </div>
-                      </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                );
-              })}
-          </div>
-        </CardContent>
-      </Card>
+                        <div className="text-right">
+                          <div className="text-sm font-bold">
+                            {formatCurrency(categoryData.totalAmount || 0)}
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="pl-4">Bulan</TableHead>
+                            <TableHead className="text-right">Transaksi</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="text-right pr-4">Rata-rata</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {categoryData.months.map((monthData) => (
+                            <TableRow key={monthData.month}>
+                              <TableCell className="font-medium pl-4">
+                                {new Date(monthData.month + "-01").toLocaleDateString(
+                                  "id-ID",
+                                  {
+                                    year: "numeric",
+                                    month: "long",
+                                  }
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {monthData.count || 0}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(monthData.total || 0)}
+                              </TableCell>
+                              <TableCell className="text-right pr-4">
+                                {formatCurrency(
+                                  monthData.count > 0
+                                    ? Math.round(monthData.total / monthData.count)
+                                    : 0
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

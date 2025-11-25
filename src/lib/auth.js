@@ -8,8 +8,14 @@ import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./prisma";
 
 // JWT Secret (should be in environment variables)
+const secret = process.env.JWT_SECRET;
+
+if (!secret && process.env.NODE_ENV === "production") {
+  throw new Error("JWT_SECRET is not defined in environment variables");
+}
+
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "your-secret-key-change-this-in-production"
+  secret || "your-secret-key-change-this-in-production"
 );
 
 const JWT_EXPIRY = "7d"; // 7 days
